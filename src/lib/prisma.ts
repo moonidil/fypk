@@ -1,16 +1,22 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@/generated/prisma'
+import { PrismaPg } from '@prisma/adapter-pg'
 
-//extend the global object so Prisma can be cached during development.
+//stores the prisma client on the global object in development.
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-//reuse the existing prisma client if it exists. prevents multiple Prisma instances from being created during hot reloads in development
+//creates the postgres adapter using the database connection string.
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+})
+
+//reuses the existing prisma client if one already exists.
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: ['query'],
+    adapter,
   })
 
-//store the prisma client globally in non-production environments only.
+//saves the prisma client globally during development to avoid duplicates.
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
