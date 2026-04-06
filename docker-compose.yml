@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: koda-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: koda
+    ports:
+      - "5432:5432"
+    volumes:
+      - koda_pgdata:/var/lib/postgresql/data
+
+volumes:
+  koda_pgdata:
