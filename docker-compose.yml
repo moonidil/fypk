@@ -1,15 +1,18 @@
+# docker-compose.yml
+version: '3.8'
+
 services:
   db:
     image: postgres:16
-    container_name: koda-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: koda
+      POSTGRES_USER: koda
+      POSTGRES_PASSWORD: kodapassword
+      POSTGRES_DB: kodadb
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
-      - koda_pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
-  koda_pgdata:
+  postgres_data:
