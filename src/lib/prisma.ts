@@ -1,5 +1,5 @@
-import { PrismaClient } from '@/generated/prisma'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from "@/generated/prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
 
 //stores the prisma client on the global object in development.
 const globalForPrisma = globalThis as unknown as {
@@ -19,4 +19,4 @@ export const prisma =
   })
 
 //saves the prisma client globally during development to avoid duplicates.
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
