@@ -1,3 +1,4 @@
+//the profile creation endpoint. a protected route that requires authentication. It validates the input and checks for existing profiles before creating a new one. It also includes a GET handler to fetch the current user's profile
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
