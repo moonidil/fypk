@@ -1,10 +1,26 @@
-//supported content block types that can be placed on a profile/layout grid.
-export type BlockType = 'project' | 'text' | 'image' | 'skills' | 'education'
+//supported content block types that can be placed on the users canvas.
+export type BlockType =
+  | "project"
+  | "text"
+  | "image"
+  | "skills"
+  | "education"
+  | "link"
 
-//describes size and placement of a block within the grid layout.
+//stores flexible content depending on the type of block.
+export interface BlockContent {
+  text?: string
+  title?: string
+  imageUrl?: string
+  linkUrl?: string
+  linkLabel?: string
+  skills?: string[]
+}
+
+//describes the size and placement of a block within the grid layout.
 export interface GridPosition {
-  x: number      //the horizontal start position
-  y: number      //the vertical start position
-  width: number  //th block width in grid units
-  height: number //and block height in grid units
+  x: number
+  y: number
+  width: number
+  height: number
 }
