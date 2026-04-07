@@ -40,6 +40,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
 
+  //stores the user id in the jwt after login.
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+      }
+      return token
+    },
+
+    //adds the user id onto the session object.
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string
+      }
+      return session
+    },
+  },
+
   //uses jwt-based sessions instead of storing sessions in the database.
   session: { strategy: "jwt" },
 
