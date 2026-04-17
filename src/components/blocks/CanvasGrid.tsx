@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import CanvasBlock from "./CanvasBlock"
+import CanvasAddMenu from "./CanvasAddMenu"
 import type { BlockContent, BlockType } from "@/types"
 
 type Block = {
@@ -14,26 +15,23 @@ type Block = {
   content: BlockContent
 }
 
+type DragState = {
+  id: string
+  offsetX: number
+  offsetY: number
+  originalX: number
+  originalY: number
+} | null
+
+type Cell = {
+  x: number
+  y: number
+}
+
 const CELL_SIZE = 120
 const GAP = 12
 const GRID_COLS = 8
 const GRID_ROWS = 6
-
-const BLOCK_TYPES: BlockType[] = [
-  "text",
-  "project",
-  "skills",
-  "image",
-  "education",
-  "link",
-]
-
-const BLOCK_SIZES = [
-  { label: "Small", width: 1, height: 1 },
-  { label: "Wide", width: 2, height: 1 },
-  { label: "Tall", width: 1, height: 2 },
-  { label: "Large", width: 2, height: 2 },
-]
 
 //checks whether two block rectangles overlap.
 function rectanglesOverlap(
@@ -51,10 +49,18 @@ function rectanglesOverlap(
 export default function CanvasGrid() {
   const [blocks, setBlocks] = useState<Block[]>([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(false)
-  const [selectedType, setSelectedType] = useState<BlockType>("text")
-  const [selectedSize, setSelectedSize] = useState({ width: 1, height: 1 })
   const [error, setError] = useState("")
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
+  const [menuCell, setMenuCell] = useState<Cell | null>(null)
+  const [menuPixelPosition, setMenuPixelPosition] = useState<{
+    left: number
+    top: number
+  } | null>(null)
+  const [hoveredAnchor, setHoveredAnchor] = useState<Cell | null>(null)
+  const [dragState, setDragState] = useState<DragState>(null)
+  const [dragPreview, setDragPreview] = useState<Cell | null>(null)
+
+  const gridRef = useRef<HTMLDivElement | null>(null)
 
   //loads existing blocks on mount.
   useEffect(() => {
@@ -79,39 +85,113 @@ export default function CanvasGrid() {
     loadBlocks()
   }, [])
 
+  const displayedBlocks = useMemo(() => {
+    if (!dragState || !dragPreview) return blocks
+
+    return blocks.map((block) =>
+      block.id === dragState.id
+        ? { ...block, x: dragPreview.x, y: dragPreview.y }
+        : block
+    )
+  }, [blocks, dragPreview, dragState])
+
+  const occupiedCells = useMemo(() => {
+    const taken = new Set<string>()
+
+    for (const block of displayedBlocks) {
+      for (let row = block.y; row < block.y + block.height; row += 1) {
+        for (let col = block.x; col < block.x + block.width; col += 1) {
+          taken.add(`${col}-${row}`)
+        }
+      }
+    }
+
+    return taken
+  }, [displayedBlocks])
+
   //checks whether a block can fit at a given position without overlapping.
-  function canPlaceBlock(x: number, y: number, width: number, height: number): boolean {
-    //checks that the block stays inside the grid.
+  function canPlaceBlockAt(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    ignoreBlockId?: string
+  ): boolean {
     if (x < 0 || y < 0 || x + width > GRID_COLS || y + height > GRID_ROWS) {
       return false
     }
 
     const candidate = { x, y, width, height }
 
-    return !blocks.some((block) =>
-      rectanglesOverlap(candidate, {
+    return !blocks.some((block) => {
+      if (block.id === ignoreBlockId) return false
+
+      return rectanglesOverlap(candidate, {
         x: block.x,
         y: block.y,
         width: block.width,
         height: block.height,
       })
+    })
+  }
+
+  //finds a block that occupies the given grid cell.
+  function getBlockAtCell(x: number, y: number): Block | null {
+    return (
+      blocks.find((block) =>
+        rectanglesOverlap(
+          { x, y, width: 1, height: 1 },
+          {
+            x: block.x,
+            y: block.y,
+            width: block.width,
+            height: block.height,
+          }
+        )
+      ) || null
     )
   }
 
-  //finds the next available position for a block of a given size.
-  function getNextPosition(
-    width: number,
-    height: number
-  ): { x: number; y: number } | null {
-    for (let row = 0; row < GRID_ROWS; row++) {
-      for (let col = 0; col < GRID_COLS; col++) {
-        if (canPlaceBlock(col, row, width, height)) {
-          return { x: col, y: row }
-        }
-      }
-    }
+  //converts a mouse position inside the canvas into a snapped grid cell.
+  function getGridPositionFromMouse(clientX: number, clientY: number) {
+    const grid = gridRef.current
+    if (!grid) return null
 
-    return null
+    const rect = grid.getBoundingClientRect()
+    const localX = clientX - rect.left
+    const localY = clientY - rect.top
+
+    return {
+      x: Math.floor(localX / (CELL_SIZE + GAP)),
+      y: Math.floor(localY / (CELL_SIZE + GAP)),
+    }
+  }
+
+  function isInsideGrid(x: number, y: number) {
+    return x >= 0 && y >= 0 && x < GRID_COLS && y < GRID_ROWS
+  }
+
+  function getMenuPositionForCell(x: number, y: number) {
+    const baseLeft = x * (CELL_SIZE + GAP) + CELL_SIZE / 2 + 14
+    const baseTop = y * (CELL_SIZE + GAP) + CELL_SIZE / 2 + 14
+    const menuWidth = 220
+    const menuHeight = 320
+    const gridWidth = GRID_COLS * (CELL_SIZE + GAP) - GAP
+    const gridHeight = GRID_ROWS * (CELL_SIZE + GAP) - GAP
+
+    return {
+      left: Math.max(12, Math.min(baseLeft, gridWidth - menuWidth - 12)),
+      top: Math.max(12, Math.min(baseTop, gridHeight - menuHeight - 12)),
+    }
+  }
+
+  function openMenuAtCell(x: number, y: number) {
+    if (!isInsideGrid(x, y)) return
+    if (getBlockAtCell(x, y)) return
+
+    setSelectedBlockId(null)
+    setMenuCell({ x, y })
+    setMenuPixelPosition(getMenuPositionForCell(x, y))
   }
 
   //creates starter content based on the selected block type.
@@ -155,29 +235,49 @@ export default function CanvasGrid() {
     }
   }
 
-  async function handleAddBlock() {
-    setAdding(true)
-    setError("")
+  //blank canvas clicks should only clear selection and menus.
+  function handleCanvasClick() {
+    setSelectedBlockId(null)
+    setMenuCell(null)
+    setMenuPixelPosition(null)
+  }
 
-    const position = getNextPosition(selectedSize.width, selectedSize.height)
+  //right click still works as a shortcut for empty cells.
+  function handleCanvasContextMenu(e: React.MouseEvent<HTMLDivElement>) {
+    e.preventDefault()
 
-    if (!position) {
-      setError("No space available for that block size")
-      setAdding(false)
+    const position = getGridPositionFromMouse(e.clientX, e.clientY)
+    if (!position) return
+
+    const clickedBlock = getBlockAtCell(position.x, position.y)
+
+    if (clickedBlock) {
+      setSelectedBlockId(clickedBlock.id)
+      setMenuCell(null)
+      setMenuPixelPosition(null)
       return
     }
+
+    openMenuAtCell(position.x, position.y)
+  }
+
+  //creates a new block at the selected empty grid cell.
+  async function handleAddBlock(type: BlockType) {
+    if (!menuCell) return
+
+    setError("")
 
     try {
       const res = await fetch("/api/canvas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: selectedType,
-          x: position.x,
-          y: position.y,
-          width: selectedSize.width,
-          height: selectedSize.height,
-          content: getDefaultContent(selectedType),
+          type,
+          x: menuCell.x,
+          y: menuCell.y,
+          width: 1,
+          height: 1,
+          content: getDefaultContent(type),
         }),
       })
 
@@ -189,10 +289,12 @@ export default function CanvasGrid() {
       }
 
       setBlocks((prev) => [...prev, data])
+      setSelectedBlockId(data.id)
+      setMenuCell(null)
+      setMenuPixelPosition(null)
+      setHoveredAnchor(null)
     } catch {
       setError("Failed to add block")
-    } finally {
-      setAdding(false)
     }
   }
 
@@ -214,10 +316,141 @@ export default function CanvasGrid() {
       }
 
       setBlocks((prev) => prev.filter((block) => block.id !== id))
+
+      if (selectedBlockId === id) {
+        setSelectedBlockId(null)
+      }
     } catch {
       setError("Failed to delete block")
     }
   }
+
+  //starts dragging a block and stores the initial mouse offset from the block origin.
+  function handleDragStart(id: string, e: React.MouseEvent<HTMLDivElement>) {
+    if (e.button !== 0) return
+
+    const block = blocks.find((item) => item.id === id)
+    if (!block || !gridRef.current) return
+
+    const gridRect = gridRef.current.getBoundingClientRect()
+    const blockLeft = block.x * (CELL_SIZE + GAP)
+    const blockTop = block.y * (CELL_SIZE + GAP)
+
+    setSelectedBlockId(id)
+    setMenuCell(null)
+    setMenuPixelPosition(null)
+    setHoveredAnchor(null)
+
+    setDragState({
+      id,
+      offsetX: e.clientX - (gridRect.left + blockLeft),
+      offsetY: e.clientY - (gridRect.top + blockTop),
+      originalX: block.x,
+      originalY: block.y,
+    })
+
+    setDragPreview({ x: block.x, y: block.y })
+  }
+
+  //moves the drag preview as the mouse moves and saves on mouse up.
+  useEffect(() => {
+    if (!dragState) return
+
+    function handleMouseMove(e: MouseEvent) {
+      const grid = gridRef.current
+      if (!grid) return
+
+      const block = blocks.find((item) => item.id === dragState.id)
+      if (!block) return
+
+      const rect = grid.getBoundingClientRect()
+      const rawLeft = e.clientX - rect.left - dragState.offsetX
+      const rawTop = e.clientY - rect.top - dragState.offsetY
+
+      const candidateX = Math.round(rawLeft / (CELL_SIZE + GAP))
+      const candidateY = Math.round(rawTop / (CELL_SIZE + GAP))
+
+      if (
+        canPlaceBlockAt(
+          candidateX,
+          candidateY,
+          block.width,
+          block.height,
+          block.id
+        )
+      ) {
+        setDragPreview({ x: candidateX, y: candidateY })
+      }
+    }
+
+    async function handleMouseUp() {
+      const block = blocks.find((item) => item.id === dragState.id)
+      if (!block) {
+        setDragState(null)
+        setDragPreview(null)
+        return
+      }
+
+      const originalX = dragState.originalX
+      const originalY = dragState.originalY
+      const nextX = dragPreview?.x ?? originalX
+      const nextY = dragPreview?.y ?? originalY
+      const moved = nextX !== originalX || nextY !== originalY
+
+      if (!moved) {
+        setDragState(null)
+        setDragPreview(null)
+        return
+      }
+
+      setBlocks((prev) =>
+        prev.map((item) =>
+          item.id === block.id ? { ...item, x: nextX, y: nextY } : item
+        )
+      )
+
+      setDragState(null)
+      setDragPreview(null)
+
+      try {
+        const res = await fetch("/api/canvas", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: block.id,
+            x: nextX,
+            y: nextY,
+          }),
+        })
+
+        const data = await res.json().catch(() => null)
+
+        if (!res.ok) {
+          setBlocks((prev) =>
+            prev.map((item) =>
+              item.id === block.id ? { ...item, x: originalX, y: originalY } : item
+            )
+          )
+          setError(data?.error || "Failed to save block position")
+        }
+      } catch {
+        setBlocks((prev) =>
+          prev.map((item) =>
+            item.id === block.id ? { ...item, x: originalX, y: originalY } : item
+          )
+        )
+        setError("Failed to save block position")
+      }
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [blocks, dragPreview, dragState])
 
   const gridWidth = GRID_COLS * (CELL_SIZE + GAP) - GAP
   const gridHeight = GRID_ROWS * (CELL_SIZE + GAP) - GAP
@@ -232,90 +465,97 @@ export default function CanvasGrid() {
 
   return (
     <div className="space-y-4">
-      {/*toolbar*/}
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-gray-600">Add block:</span>
+      <p className="text-center text-sm text-gray-500">
+        Hover a plus to add a block. Click a block to select it. Drag a block to move it.
+      </p>
 
-        {BLOCK_TYPES.map((type) => (
-          <button
-            key={type}
-            onClick={() => setSelectedType(type)}
-            className={`rounded-lg border px-3 py-1 text-sm capitalize transition-colors ${
-              selectedType === type
-                ? "border-black bg-black text-white"
-                : "border-gray-200 bg-white text-gray-600 hover:border-black"
-            }`}
-          >
-            {type}
-          </button>
-        ))}
+      {error && <p className="text-center text-sm text-red-500">{error}</p>}
 
-        <span className="ml-2 text-sm font-medium text-gray-600">Size:</span>
-
-        {BLOCK_SIZES.map((size) => {
-          const isSelected =
-            selectedSize.width === size.width &&
-            selectedSize.height === size.height
-
-          return (
-            <button
-              key={size.label}
-              onClick={() =>
-                setSelectedSize({ width: size.width, height: size.height })
-              }
-              className={`rounded-lg border px-3 py-1 text-sm transition-colors ${
-                isSelected
-                  ? "border-black bg-black text-white"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-black"
-              }`}
-            >
-              {size.label}
-            </button>
-          )
-        })}
-
-        <button
-          onClick={handleAddBlock}
-          disabled={adding}
-          className="rounded-lg bg-black px-4 py-1 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+      <div className="flex justify-center">
+        <div
+          ref={gridRef}
+          onClick={handleCanvasClick}
+          onContextMenu={handleCanvasContextMenu}
+          onMouseLeave={() => setHoveredAnchor(null)}
+          className="relative"
+          style={{ width: gridWidth, height: gridHeight }}
         >
-          {adding ? "Adding..." : "+ Add"}
-        </button>
-      </div>
+          {Array.from({ length: GRID_ROWS }).map((_, row) =>
+            Array.from({ length: GRID_COLS }).map((_, col) => {
+              const cellKey = `${col}-${row}`
+              const isOccupied = occupiedCells.has(cellKey)
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+              if (isOccupied) return null
 
-      {/*grid*/}
-      <div
-        className="relative overflow-auto rounded-2xl bg-gray-100"
-        style={{ width: gridWidth, height: gridHeight }}
-      >
-        {/*grid background dots*/}
-        {Array.from({ length: GRID_ROWS }).map((_, row) =>
-          Array.from({ length: GRID_COLS }).map((_, col) => (
-            <div
-              key={`${col}-${row}`}
-              className="absolute h-1 w-1 rounded-full bg-gray-300"
-              style={{
-                left: col * (CELL_SIZE + GAP) + CELL_SIZE / 2,
-                top: row * (CELL_SIZE + GAP) + CELL_SIZE / 2,
+              const isHovered =
+                hoveredAnchor?.x === col && hoveredAnchor?.y === row
+
+              return (
+                <button
+                  key={cellKey}
+                  type="button"
+                  aria-label={`Add block at column ${col + 1}, row ${row + 1}`}
+                  onMouseEnter={() => setHoveredAnchor({ x: col, y: row })}
+                  onFocus={() => setHoveredAnchor({ x: col, y: row })}
+                  onBlur={() => setHoveredAnchor(null)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openMenuAtCell(col, row)
+                  }}
+                  className="absolute z-10 flex items-center justify-center rounded-full"
+                  style={{
+                    left: col * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 18,
+                    top: row * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 18,
+                    width: 36,
+                    height: 36,
+                  }}
+                >
+                  <span
+                    className={`select-none leading-none transition-all duration-150 ${
+                      isHovered
+                        ? "text-[15px] text-gray-300"
+                        : "text-[8px] text-gray-300/90"
+                    }`}
+                  >
+                    {isHovered ? "+" : "•"}
+                  </span>
+                </button>
+              )
+            })
+          )}
+
+          {displayedBlocks.map((block) => (
+            <CanvasBlock
+              key={block.id}
+              {...block}
+              isSelected={selectedBlockId === block.id}
+              isDragging={dragState?.id === block.id}
+              onDelete={handleDeleteBlock}
+              onSelect={setSelectedBlockId}
+              onDragStart={handleDragStart}
+            />
+          ))}
+
+          {blocks.length === 0 && !menuCell && (
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2">
+              <p className="text-center text-sm text-gray-350 text-gray-400">
+                Hover a dot to start building your page.
+              </p>
+            </div>
+          )}
+
+          {menuCell && menuPixelPosition && (
+            <CanvasAddMenu
+              x={menuPixelPosition.left}
+              y={menuPixelPosition.top}
+              onSelect={handleAddBlock}
+              onClose={() => {
+                setMenuCell(null)
+                setMenuPixelPosition(null)
               }}
             />
-          ))
-        )}
-
-        {/*blocks*/}
-        {blocks.map((block) => (
-          <CanvasBlock key={block.id} {...block} onDelete={handleDeleteBlock} />
-        ))}
-
-        {blocks.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-sm text-gray-400">
-              Your canvas is empty. Add a block to get started.
-            </p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

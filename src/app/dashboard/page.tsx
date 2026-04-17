@@ -19,12 +19,17 @@ export default async function DashboardPage() {
     redirect("/onboarding")
   }
 
+  const displayName =
+    profile.handle || session.user.name || session.user.email || "Your canvas"
+
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-screen-xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Your canvas</h1>
-          <p className="mt-1 text-sm text-gray-500">
+    <main className="min-h-screen bg-white">
+      <div className="mx-auto max-w-[1200px] px-6 pb-12 pt-10 md:px-10">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-950">
+            {displayName}
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">
             koda.app/{profile.slug} · {session.user.email}
           </p>
         </div>

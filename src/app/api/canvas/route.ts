@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid block type" }, { status: 400 })
     }
 
-    //checks that the grid values are numbers.
+    //checks that the grid values are valid numbers.
     if (
       typeof x !== "number" ||
       typeof y !== "number" ||
@@ -74,9 +74,16 @@ export async function POST(req: Request) {
     const safeHeight = height ?? 1
 
     //checks that the block size is valid.
-    if (safeWidth < 1 || safeHeight < 1) {
+    if (
+      !Number.isInteger(x) ||
+      !Number.isInteger(y) ||
+      !Number.isInteger(safeWidth) ||
+      !Number.isInteger(safeHeight) ||
+      safeWidth < 1 ||
+      safeHeight < 1
+    ) {
       return NextResponse.json(
-        { error: "width and height must be at least 1" },
+        { error: "x, y, width and height must be positive integers" },
         { status: 400 }
       )
     }
@@ -94,6 +101,88 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json(block, { status: 201 })
+  } catch {
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+  }
+}
+
+//updates an existing canvas block if it belongs to the current user.
+export async function PATCH(req: Request) {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
+    }
+
+    const { id, x, y, width, height, content } = await req.json()
+
+    if (!id) {
+      return NextResponse.json({ error: "Block ID is required" }, { status: 400 })
+    }
+
+    const block = await prisma.canvasBlock.findUnique({
+      where: { id },
+    })
+
+    if (!block || block.userId !== session.user.id) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
+
+    const updateData: {
+      x?: number
+      y?: number
+      width?: number
+      height?: number
+      content?: unknown
+    } = {}
+
+    //updates position only if valid values were provided.
+    if (x !== undefined) {
+      if (typeof x !== "number" || !Number.isInteger(x) || x < 0) {
+        return NextResponse.json({ error: "Invalid x value" }, { status: 400 })
+      }
+      updateData.x = x
+    }
+
+    if (y !== undefined) {
+      if (typeof y !== "number" || !Number.isInteger(y) || y < 0) {
+        return NextResponse.json({ error: "Invalid y value" }, { status: 400 })
+      }
+      updateData.y = y
+    }
+
+    if (width !== undefined) {
+      if (typeof width !== "number" || !Number.isInteger(width) || width < 1) {
+        return NextResponse.json({ error: "Invalid width value" }, { status: 400 })
+      }
+      updateData.width = width
+    }
+
+    if (height !== undefined) {
+      if (
+        typeof height !== "number" ||
+        !Number.isInteger(height) ||
+        height < 1
+      ) {
+        return NextResponse.json(
+          { error: "Invalid height value" },
+          { status: 400 }
+        )
+      }
+      updateData.height = height
+    }
+
+    if (content !== undefined) {
+      updateData.content = content
+    }
+
+    const updatedBlock = await prisma.canvasBlock.update({
+      where: { id },
+      data: updateData,
+    })
+
+    return NextResponse.json(updatedBlock)
   } catch {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
