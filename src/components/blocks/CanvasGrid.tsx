@@ -496,25 +496,32 @@ export default function CanvasGrid() {
                   type="button"
                   aria-label={`Add block at column ${col + 1}, row ${row + 1}`}
                   onMouseEnter={() => setHoveredAnchor({ x: col, y: row })}
+                  onMouseLeave={() => {
+                    if (menuCell?.x !== col || menuCell?.y !== row) {
+                      setHoveredAnchor(null)
+                    }
+                  }}
                   onFocus={() => setHoveredAnchor({ x: col, y: row })}
                   onBlur={() => setHoveredAnchor(null)}
                   onClick={(e) => {
                     e.stopPropagation()
                     openMenuAtCell(col, row)
                   }}
-                  className="absolute z-10 flex items-center justify-center rounded-full"
+                  className={`absolute z-10 flex cursor-pointer items-center justify-center rounded-full transition-all duration-150 ${
+                    isHovered ? "bg-gray-100/80" : "bg-transparent"
+                  }`}
                   style={{
-                    left: col * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 18,
-                    top: row * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 18,
-                    width: 36,
-                    height: 36,
+                    left: col * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 22,
+                    top: row * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 22,
+                    width: 44,
+                    height: 44,
                   }}
                 >
                   <span
                     className={`select-none leading-none transition-all duration-150 ${
                       isHovered
-                        ? "text-[15px] text-gray-300"
-                        : "text-[8px] text-gray-300/90"
+                        ? "scale-100 text-[16px] text-gray-500"
+                        : "scale-100 text-[10px] text-gray-300"
                     }`}
                   >
                     {isHovered ? "+" : "•"}
@@ -538,8 +545,8 @@ export default function CanvasGrid() {
 
           {blocks.length === 0 && !menuCell && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2">
-              <p className="text-center text-sm text-gray-350 text-gray-400">
-                Hover a dot to start building your page.
+              <p className="text-center text-sm text-gray-500">
+                  Hover a dot to start building your page.
               </p>
             </div>
           )}
