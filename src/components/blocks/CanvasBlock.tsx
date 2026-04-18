@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { BlockContent, BlockType } from "@/types"
 
 type Props = {
@@ -13,8 +14,12 @@ type Props = {
   isSelected: boolean
   isDragging: boolean
   isResizing: boolean
+  isEditing: boolean
   onDelete: (id: string) => void
   onSelect: (id: string) => void
+  onStartEditing: (id: string) => void
+  onStopEditing: () => void
+  onSaveContent: (id: string, content: BlockContent) => Promise<void>
   onDragStart: (id: string, e: React.MouseEvent<HTMLDivElement>) => void
   onResizeStart: (id: string, e: React.MouseEvent<HTMLButtonElement>) => void
 }
@@ -39,25 +44,269 @@ type Style = {
   height: number
 }
 
-//renders the inside content of each block depending on its type.
-function renderBlockContent(type: BlockType, content: BlockContent) {
-  if (type === "text") {
+type EditableContentProps = {
+  content: BlockContent
+  isEditing: boolean
+  onStartEditing: () => void
+  onStopEditing: () => void
+  onSave: (content: BlockContent) => Promise<void>
+}
+
+function TextBlockContent({
+  content,
+  isEditing,
+  onStartEditing,
+  onStopEditing,
+  onSave,
+}: EditableContentProps) {
+  const [title, setTitle] = useState(content.title ?? "")
+  const [text, setText] = useState(content.text ?? "")
+  const [isSaving, setIsSaving] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const titleInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    setTitle(content.title ?? "")
+    setText(content.text ?? "")
+  }, [content.title, content.text])
+
+  useEffect(() => {
+    if (isEditing) {
+      queueMicrotask(() => {
+        titleInputRef.current?.focus()
+      })
+    }
+  }, [isEditing])
+
+  const hasChanges = useMemo(() => {
+    return title !== (content.title ?? "") || text !== (content.text ?? "")
+  }, [content.title, content.text, text, title])
+
+  async function saveIfNeeded() {
+    if (!hasChanges) {
+      onStopEditing()
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      await onSave({
+        ...content,
+        title: title.trim(),
+        text: text.trim(),
+      })
+    } finally {
+      setIsSaving(false)
+      onStopEditing()
+    }
+  }
+
+  if (isEditing) {
     return (
-      <>
-        {content.title && (
-          <p className="mt-2 text-sm font-medium text-gray-800">
-            {content.title}
-          </p>
-        )}
-        {content.text && (
-          <p className="mt-1 line-clamp-5 whitespace-pre-wrap text-sm text-gray-700">
-            {content.text}
-          </p>
-        )}
-      </>
+      <div
+        ref={wrapperRef}
+        className="mt-2 flex h-full flex-col gap-2"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onBlurCapture={(e) => {
+          const nextTarget = e.relatedTarget as Node | null
+
+          if (nextTarget && wrapperRef.current?.contains(nextTarget)) {
+            return
+          }
+
+          void saveIfNeeded()
+        }}
+      >
+        <input
+          ref={titleInputRef}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title"
+          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm font-medium text-gray-800 outline-none focus:border-gray-300"
+        />
+
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Write something here..."
+          className="min-h-[96px] flex-1 resize-none rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
+        />
+
+        <div className="text-[11px] text-gray-400">
+          {isSaving ? "Saving..." : "Click away to save"}
+        </div>
+      </div>
     )
   }
 
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onStartEditing()
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      className="mt-2 block w-full rounded-lg text-left transition hover:bg-gray-50/80"
+    >
+      {content.title ? (
+        <p className="text-sm font-medium text-gray-800">{content.title}</p>
+      ) : (
+        <p className="text-sm font-medium text-gray-400">Untitled text block</p>
+      )}
+
+      {content.text ? (
+        <p className="mt-1 line-clamp-5 whitespace-pre-wrap text-sm text-gray-700">
+          {content.text}
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-gray-400">Click to write.</p>
+      )}
+    </button>
+  )
+}
+
+function LinkBlockContent({
+  content,
+  isEditing,
+  onStartEditing,
+  onStopEditing,
+  onSave,
+}: EditableContentProps) {
+  const [title, setTitle] = useState(content.title ?? "")
+  const [linkUrl, setLinkUrl] = useState(content.linkUrl ?? "")
+  const [linkLabel, setLinkLabel] = useState(content.linkLabel ?? "")
+  const [isSaving, setIsSaving] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const titleInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    setTitle(content.title ?? "")
+    setLinkUrl(content.linkUrl ?? "")
+    setLinkLabel(content.linkLabel ?? "")
+  }, [content.linkLabel, content.linkUrl, content.title])
+
+  useEffect(() => {
+    if (isEditing) {
+      queueMicrotask(() => {
+        titleInputRef.current?.focus()
+      })
+    }
+  }, [isEditing])
+
+  const hasChanges = useMemo(() => {
+    return (
+      title !== (content.title ?? "") ||
+      linkUrl !== (content.linkUrl ?? "") ||
+      linkLabel !== (content.linkLabel ?? "")
+    )
+  }, [content.linkLabel, content.linkUrl, content.title, linkLabel, linkUrl, title])
+
+  async function saveIfNeeded() {
+    if (!hasChanges) {
+      onStopEditing()
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      await onSave({
+        ...content,
+        title: title.trim(),
+        linkUrl: linkUrl.trim(),
+        linkLabel: linkLabel.trim(),
+      })
+    } finally {
+      setIsSaving(false)
+      onStopEditing()
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div
+        ref={wrapperRef}
+        className="mt-2 flex h-full flex-col gap-2"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onBlurCapture={(e) => {
+          const nextTarget = e.relatedTarget as Node | null
+
+          if (nextTarget && wrapperRef.current?.contains(nextTarget)) {
+            return
+          }
+
+          void saveIfNeeded()
+        }}
+      >
+        <input
+          ref={titleInputRef}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title"
+          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm font-medium text-gray-800 outline-none focus:border-gray-300"
+        />
+
+        <input
+          value={linkUrl}
+          onChange={(e) => setLinkUrl(e.target.value)}
+          placeholder="https://example.com"
+          className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
+        />
+
+        <input
+          value={linkLabel}
+          onChange={(e) => setLinkLabel(e.target.value)}
+          placeholder="Link label"
+          className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
+        />
+
+        <div className="text-[11px] text-gray-400">
+          {isSaving ? "Saving..." : "Click away to save"}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onStartEditing()
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      className="mt-2 block w-full rounded-lg text-left transition hover:bg-gray-50/80"
+    >
+      {content.title ? (
+        <p className="text-sm font-medium text-gray-800">{content.title}</p>
+      ) : (
+        <p className="text-sm font-medium text-gray-400">Untitled link block</p>
+      )}
+
+      {content.linkUrl ? (
+        <a
+          href={content.linkUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 block break-words text-sm font-medium text-blue-600 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {content.linkLabel || content.linkUrl}
+        </a>
+      ) : (
+        <p className="mt-1 text-sm text-gray-400">Click to add a link.</p>
+      )}
+    </button>
+  )
+}
+
+//renders the inside content of each block depending on its type.
+function renderBlockView(type: BlockType, content: BlockContent) {
   if (type === "image") {
     return (
       <>
@@ -76,33 +325,6 @@ function renderBlockContent(type: BlockType, content: BlockContent) {
           />
         ) : (
           <p className="mt-2 text-sm text-gray-500">No image added yet.</p>
-        )}
-      </>
-    )
-  }
-
-  if (type === "link") {
-    return (
-      <>
-        {content.title && (
-          <p className="mt-2 text-sm font-medium text-gray-800">
-            {content.title}
-          </p>
-        )}
-
-        {content.linkUrl ? (
-          <a
-            href={content.linkUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 block break-words text-sm font-medium text-blue-600 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {content.linkLabel || content.linkUrl}
-          </a>
-        ) : (
-          <p className="mt-2 text-sm text-gray-500">No link added yet.</p>
         )}
       </>
     )
@@ -171,8 +393,12 @@ export default function CanvasBlock({
   isSelected,
   isDragging,
   isResizing,
+  isEditing,
   onDelete,
   onSelect,
+  onStartEditing,
+  onStopEditing,
+  onSaveContent,
   onDragStart,
   onResizeStart,
 }: Props) {
@@ -187,16 +413,40 @@ export default function CanvasBlock({
     height: height * CELL_SIZE + (height - 1) * GAP,
   }
 
+  function renderContent() {
+    if (type === "text") {
+      return (
+        <TextBlockContent
+          content={content}
+          isEditing={isEditing}
+          onStartEditing={() => onStartEditing(id)}
+          onStopEditing={onStopEditing}
+          onSave={(nextContent) => onSaveContent(id, nextContent)}
+        />
+      )
+    }
+
+    if (type === "link") {
+      return (
+        <LinkBlockContent
+          content={content}
+          isEditing={isEditing}
+          onStartEditing={() => onStartEditing(id)}
+          onStopEditing={onStopEditing}
+          onSave={(nextContent) => onSaveContent(id, nextContent)}
+        />
+      )
+    }
+
+    return renderBlockView(type, content)
+  }
+
   return (
     <div
       style={style}
       onClick={(e) => {
         e.stopPropagation()
         onSelect(id)
-      }}
-      onMouseDown={(e) => {
-        e.stopPropagation()
-        onDragStart(id, e)
       }}
       onContextMenu={(e) => {
         e.preventDefault()
@@ -209,19 +459,41 @@ export default function CanvasBlock({
           : isSelected
             ? "shadow-sm"
             : "hover:shadow-sm"
-      } ${isDragging ? "cursor-grabbing opacity-80" : "cursor-grab"} ${
-        isResizing ? "opacity-90" : ""
-      } ${blockBase} ${isSelected ? "ring-2 ring-black" : ""}`}
+      } ${isDragging ? "opacity-80" : ""} ${isResizing ? "opacity-90" : ""} ${
+        blockBase
+      } ${isSelected ? "ring-2 ring-black" : ""}`}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/[0.02] to-transparent" />
+      <div
+        onMouseDown={(e) => {
+          e.stopPropagation()
+          onDragStart(id, e)
+        }}
+        className={`-mx-3 -mt-3 mb-2 flex h-9 items-center justify-between rounded-t-2xl px-3 ${
+          isEditing ? "cursor-default" : isDragging ? "cursor-grabbing" : "cursor-grab"
+        }`}
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/[0.02] to-transparent" />
 
-      <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
-        {blockLabels[type]}
-      </span>
+        <span className="relative z-10 text-xs font-medium uppercase tracking-wide text-gray-400">
+          {blockLabels[type]}
+        </span>
 
-      <div className="h-[calc(100%-1.5rem)] overflow-hidden">
-        {renderBlockContent(type, content)}
+        {(type === "text" || type === "link") && isSelected && !isEditing && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onStartEditing(id)
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="relative z-10 rounded-md px-2 py-1 text-[11px] text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            Edit
+          </button>
+        )}
       </div>
+
+      <div className="h-[calc(100%-2rem)] overflow-hidden">{renderContent()}</div>
 
       {/*delete button appears when the block is selected or hovered.*/}
       <button
@@ -231,7 +503,7 @@ export default function CanvasBlock({
           onDelete(id)
         }}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`absolute right-2 top-2 h-6 w-6 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
+        className={`absolute right-2 top-10 h-6 w-6 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
           isSelected ? "flex" : "hidden group-hover:flex"
         }`}
         aria-label="Delete block"

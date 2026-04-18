@@ -61,6 +61,7 @@ export default function CanvasGrid() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
   const [menuCell, setMenuCell] = useState<Cell | null>(null)
   const [menuPixelPosition, setMenuPixelPosition] = useState<{
     left: number
@@ -261,7 +262,7 @@ export default function CanvasGrid() {
   function openMenuAtCell(x: number, y: number) {
     if (!isInsideGrid(x, y)) return
     if (getBlockAtCell(x, y)) return
-    if (dragState || resizeState) return
+    if (dragState || resizeState || editingBlockId) return
 
     setSelectedBlockId(null)
     setMenuCell({ x, y })
@@ -322,7 +323,7 @@ export default function CanvasGrid() {
   function handleCanvasContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault()
 
-    if (dragState || resizeState) return
+    if (dragState || resizeState || editingBlockId) return
 
     const position = getGridPositionFromMouse(e.clientX, e.clientY)
     if (!position) return
@@ -368,6 +369,7 @@ export default function CanvasGrid() {
 
       setBlocks((prev) => [...prev, data])
       setSelectedBlockId(data.id)
+      setEditingBlockId(null)
       setMenuCell(null)
       setMenuPixelPosition(null)
       setHoveredAnchor(null)
@@ -398,8 +400,52 @@ export default function CanvasGrid() {
       if (selectedBlockId === id) {
         setSelectedBlockId(null)
       }
+
+      if (editingBlockId === id) {
+        setEditingBlockId(null)
+      }
     } catch {
       setError("Failed to delete block")
+    }
+  }
+
+  async function handleSaveContent(id: string, content: BlockContent) {
+    const existingBlock = blocks.find((block) => block.id === id)
+    if (!existingBlock) return
+
+    setError("")
+
+    setBlocks((prev) =>
+      prev.map((block) => (block.id === id ? { ...block, content } : block))
+    )
+
+    try {
+      const res = await fetch("/api/canvas", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          content,
+        }),
+      })
+
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        setBlocks((prev) =>
+          prev.map((block) =>
+            block.id === id ? { ...block, content: existingBlock.content } : block
+          )
+        )
+        setError(data?.error || "Failed to save block content")
+      }
+    } catch {
+      setBlocks((prev) =>
+        prev.map((block) =>
+          block.id === id ? { ...block, content: existingBlock.content } : block
+        )
+      )
+      setError("Failed to save block content")
     }
   }
 
@@ -407,6 +453,7 @@ export default function CanvasGrid() {
   function handleDragStart(id: string, e: React.MouseEvent<HTMLDivElement>) {
     if (e.button !== 0) return
     if (resizeState) return
+    if (editingBlockId) return
 
     const block = blocks.find((item) => item.id === id)
     if (!block || !gridRef.current) return
@@ -416,6 +463,7 @@ export default function CanvasGrid() {
     const blockTop = block.y * (CELL_SIZE + GAP)
 
     setSelectedBlockId(id)
+    setEditingBlockId(null)
     setMenuCell(null)
     setMenuPixelPosition(null)
     setHoveredAnchor(null)
@@ -439,11 +487,13 @@ export default function CanvasGrid() {
   ) {
     if (e.button !== 0) return
     if (dragState) return
+    if (editingBlockId) return
 
     const block = blocks.find((item) => item.id === id)
     if (!block) return
 
     setSelectedBlockId(id)
+    setEditingBlockId(null)
     setMenuCell(null)
     setMenuPixelPosition(null)
     setHoveredAnchor(null)
@@ -682,8 +732,9 @@ export default function CanvasGrid() {
   return (
     <div className="space-y-4">
       <p className="text-center text-sm text-gray-500">
-        Hover a plus to add a block. Click a block to select it. Drag a block to
-        move it. Use the bottom-right handle to resize it.
+        Hover a plus to add a block. Drag from the block header to move it. Use
+        the bottom-right handle to resize it. Text and link blocks can be edited
+        inline.
       </p>
 
       {error && <p className="text-center text-sm text-red-500">{error}</p>}
@@ -717,7 +768,7 @@ export default function CanvasGrid() {
                   type="button"
                   aria-label={`Add block at column ${col + 1}, row ${row + 1}`}
                   onMouseEnter={() => {
-                    if (!dragState && !resizeState) {
+                    if (!dragState && !resizeState && !editingBlockId) {
                       setHoveredAnchor({ x: col, y: row })
                     }
                   }}
@@ -725,18 +776,19 @@ export default function CanvasGrid() {
                     if (
                       !dragState &&
                       !resizeState &&
+                      !editingBlockId &&
                       (menuCell?.x !== col || menuCell?.y !== row)
                     ) {
                       setHoveredAnchor(null)
                     }
                   }}
                   onFocus={() => {
-                    if (!dragState && !resizeState) {
+                    if (!dragState && !resizeState && !editingBlockId) {
                       setHoveredAnchor({ x: col, y: row })
                     }
                   }}
                   onBlur={() => {
-                    if (!dragState && !resizeState) {
+                    if (!dragState && !resizeState && !editingBlockId) {
                       setHoveredAnchor(null)
                     }
                   }}
@@ -745,7 +797,7 @@ export default function CanvasGrid() {
                     openMenuAtCell(col, row)
                   }}
                   className={`absolute z-10 flex items-center justify-center rounded-full transition-all duration-150 ${
-                    dragState || resizeState
+                    dragState || resizeState || editingBlockId
                       ? "pointer-events-none opacity-0"
                       : isHovered
                         ? "cursor-pointer bg-gray-100/80"
@@ -779,8 +831,12 @@ export default function CanvasGrid() {
               isSelected={selectedBlockId === block.id}
               isDragging={dragState?.id === block.id}
               isResizing={resizeState?.id === block.id}
+              isEditing={editingBlockId === block.id}
               onDelete={handleDeleteBlock}
               onSelect={setSelectedBlockId}
+              onStartEditing={setEditingBlockId}
+              onStopEditing={() => setEditingBlockId(null)}
+              onSaveContent={handleSaveContent}
               onDragStart={handleDragStart}
               onResizeStart={handleResizeStart}
             />
