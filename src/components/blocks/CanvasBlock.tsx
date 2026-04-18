@@ -97,7 +97,7 @@ function TextBlockContent({
     return (
       <div
         ref={wrapperRef}
-        className="mt-2 flex min-h-full flex-col gap-2 overflow-y-auto pr-1"
+        className="flex min-h-full flex-col gap-2 overflow-y-auto pr-1"
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onBlurCapture={(e) => {
@@ -140,7 +140,7 @@ function TextBlockContent({
         onStartEditing()
       }}
       onMouseDown={(e) => e.stopPropagation()}
-      className="mt-2 block w-full rounded-lg text-left transition hover:bg-gray-50/80"
+      className="block w-full rounded-lg text-left transition hover:bg-gray-50/80"
     >
       {content.title ? (
         <p className="text-sm font-medium text-gray-800">{content.title}</p>
@@ -462,11 +462,11 @@ function ImageBlockContent({
         <img
           src={content.imageUrl}
           alt={content.title || "Canvas image"}
-          className="mt-2 h-[calc(100%-2rem)] w-full rounded-lg object-cover"
+          className="mt-2 h-[calc(100%-1.75rem)] w-full rounded-lg object-cover"
           draggable={false}
         />
       ) : (
-        <div className="mt-2 flex h-[calc(100%-2rem)] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-400">
+        <div className="mt-2 flex h-[calc(100%-1.75rem)] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-400">
           Click to add an image
         </div>
       )}
@@ -479,7 +479,7 @@ function renderBlockView(type: BlockType, content: BlockContent) {
     return (
       <>
         {content.title && (
-          <p className="mt-2 text-sm font-medium text-gray-800">
+          <p className="text-sm font-medium text-gray-800">
             {content.title}
           </p>
         )}
@@ -496,7 +496,7 @@ function renderBlockView(type: BlockType, content: BlockContent) {
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-gray-500">No skills added yet.</p>
+          <p className="text-sm text-gray-500">No skills added yet.</p>
         )}
       </>
     )
@@ -506,7 +506,7 @@ function renderBlockView(type: BlockType, content: BlockContent) {
     return (
       <>
         {content.title && (
-          <p className="mt-2 text-sm font-medium text-gray-800">
+          <p className="text-sm font-medium text-gray-800">
             {content.title}
           </p>
         )}
@@ -518,7 +518,7 @@ function renderBlockView(type: BlockType, content: BlockContent) {
         )}
 
         {!content.title && !content.text && (
-          <p className="mt-2 text-sm text-gray-500">No content added yet.</p>
+          <p className="text-sm text-gray-500">No content added yet.</p>
         )}
       </>
     )
@@ -627,28 +627,13 @@ export default function CanvasBlock({
           e.stopPropagation()
           onDragStart(id, e)
         }}
-        className={`-mx-3 -mt-3 mb-2 flex h-9 items-center justify-end rounded-t-2xl px-3 ${
+        className={`-mx-3 -mt-3 mb-0 flex h-5 items-start justify-end px-3 pt-2 ${
           isEditing ? "cursor-default" : isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/[0.02] to-transparent" />
-
-        {(type === "text" || type === "link" || type === "image") && isSelected && !isEditing && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onStartEditing(id)
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="relative z-10 rounded-md px-2 py-1 text-[11px] text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
-          >
-            Edit
-          </button>
-        )}
       </div>
 
-      <div className={`h-[calc(100%-2rem)] ${isEditing ? "overflow-y-auto pr-1" : "overflow-hidden"}`}>{renderContent()}</div>
+      <div className={`h-full ${isEditing ? "overflow-y-auto pr-1" : "overflow-hidden"}`}>{renderContent()}</div>
 
       <button
         type="button"
@@ -657,7 +642,7 @@ export default function CanvasBlock({
           onDelete(id)
         }}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`absolute right-2 top-10 h-6 w-6 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
+        className={`absolute right-3 top-3 z-10 h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
           isEditing ? "hidden" : isSelected ? "flex" : "hidden group-hover:flex"
         }`}
         aria-label="Delete block"
