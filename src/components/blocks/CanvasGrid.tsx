@@ -34,14 +34,14 @@ type Cell = {
   y: number
 }
 
-const CELL_SIZE = 120
-const GAP = 12
+const CELL_SIZE = 96
+const GAP = 8
 const GRID_COLS = 8
 const GRID_ROWS = 6
 const MIN_BLOCK_WIDTH = 1
 const MIN_BLOCK_HEIGHT = 1
-const MAX_BLOCK_WIDTH = 3
-const MAX_BLOCK_HEIGHT = 3
+const MAX_BLOCK_WIDTH = 4
+const MAX_BLOCK_HEIGHT = 4
 
 //checks whether two block rectangles overlap.
 function rectanglesOverlap(
@@ -842,7 +842,7 @@ export default function CanvasGrid() {
               <p className="text-center text-sm text-gray-500">
                 Hover a plus to add a block. Drag from the block header to move
                 it. Use the bottom-right handle to resize it. Text, link, and
-                image blocks can be edited inline.
+                image blocks can be edited inline and scrolled while editing.
               </p>
             </div>
           )}

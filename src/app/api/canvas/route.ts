@@ -185,3 +185,48 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }
+
+//deletes a canvas block by id if it belongs to the current user
+export async function DELETE(req: Request) {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
+    }
+
+    const url = new URL(req.url)
+    let id = url.searchParams.get("id")
+
+    //falls back to reading json body if no query param was provided.
+    if (!id) {
+      try {
+        const body = await req.json()
+        id = body?.id
+      } catch {
+        id = null
+      }
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "Block ID is required" }, { status: 400 })
+    }
+
+    //checks that the block belongs to the logged in user before deleting it
+    const block = await prisma.canvasBlock.findUnique({
+      where: { id },
+    })
+
+    if (!block || block.userId !== session.user.id) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
+
+    await prisma.canvasBlock.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+  }
+}

@@ -1,43 +1,54 @@
 import { put } from "@vercel/blob"
-import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { NextResponse } from "next/server"
 
-export async function POST(request: Request) {
-  const session = await auth()
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+const allowedImageTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+])
 
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
+//uploads a public image blob for the logged in user.
+export async function POST(req: Request) {
   try {
-    const formData = await request.formData()
+    const session = await auth()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
+    }
+
+    const formData = await req.formData()
     const file = formData.get("file")
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ error: "Image file is required" }, { status: 400 })
     }
 
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Only image uploads are allowed" }, { status: 400 })
+    if (!allowedImageTypes.has(file.type)) {
+      return NextResponse.json(
+        { error: "Only JPG, PNG, WEBP and GIF files are allowed" },
+        { status: 400 }
+      )
     }
 
-    const maxSizeBytes = 5 * 1024 * 1024
-
-    if (file.size > maxSizeBytes) {
-      return NextResponse.json({ error: "Image must be 5MB or smaller" }, { status: 400 })
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: "Image must be 5MB or smaller" },
+        { status: 400 }
+      )
     }
 
-    const safeName = file.name.replace(/\s+/g, "-").toLowerCase()
-    const pathname = `koda/${session.user.id}/${Date.now()}-${safeName}`
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-")
+    const pathname = `canvas/${session.user.id}/${Date.now()}-${safeName}`
 
     const blob = await put(pathname, file, {
       access: "public",
+      addRandomSuffix: true,
     })
 
-    return NextResponse.json({
-      url: blob.url,
-      pathname: blob.pathname,
-    })
+    return NextResponse.json({ url: blob.url })
   } catch {
     return NextResponse.json({ error: "Failed to upload image" }, { status: 500 })
   }

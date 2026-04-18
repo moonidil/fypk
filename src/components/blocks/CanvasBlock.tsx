@@ -26,14 +26,6 @@ type Props = {
 
 const blockBase = "bg-white/85 backdrop-blur-sm border border-gray-200"
 
-const blockLabels: Record<BlockType, string> = {
-  text: "Text",
-  project: "Project",
-  skills: "Skills",
-  image: "Image",
-  education: "Education",
-  link: "Link",
-}
 
 type Style = {
   position: "absolute"
@@ -105,7 +97,7 @@ function TextBlockContent({
     return (
       <div
         ref={wrapperRef}
-        className="mt-2 flex h-full flex-col gap-2"
+        className="mt-2 flex min-h-full flex-col gap-2 overflow-y-auto pr-1"
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onBlurCapture={(e) => {
@@ -130,7 +122,7 @@ function TextBlockContent({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Write something here..."
-          className="min-h-[96px] flex-1 resize-none rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
+          className="min-h-[140px] flex-1 resize-none rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
         />
 
         <div className="text-[11px] text-gray-400">
@@ -228,7 +220,7 @@ function LinkBlockContent({
     return (
       <div
         ref={wrapperRef}
-        className="mt-2 flex h-full flex-col gap-2"
+        className="mt-2 flex min-h-full flex-col gap-2 overflow-y-auto pr-1"
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onBlurCapture={(e) => {
@@ -390,7 +382,7 @@ function ImageBlockContent({
     return (
       <div
         ref={wrapperRef}
-        className="mt-2 flex h-full flex-col gap-2"
+        className="mt-2 flex min-h-full flex-col gap-2 overflow-y-auto pr-1"
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onBlurCapture={handleBlurSave}
@@ -438,7 +430,7 @@ function ImageBlockContent({
           <img
             src={content.imageUrl}
             alt={title || "Canvas image"}
-            className="min-h-0 flex-1 rounded-lg object-cover"
+            className="min-h-0 max-h-[320px] w-full flex-1 rounded-lg object-cover"
             draggable={false}
           />
         ) : (
@@ -555,8 +547,8 @@ export default function CanvasBlock({
   onDragStart,
   onResizeStart,
 }: Props) {
-  const CELL_SIZE = 120
-  const GAP = 12
+  const CELL_SIZE = 96
+  const GAP = 8
 
   const style: Style = {
     position: "absolute",
@@ -618,7 +610,7 @@ export default function CanvasBlock({
         e.stopPropagation()
         onSelect(id)
       }}
-      className={`group relative overflow-hidden rounded-2xl p-3 transition-shadow ${
+      className={`group relative rounded-2xl p-3 transition-shadow ${
         isDragging || isResizing
           ? "shadow-lg"
           : isSelected
@@ -626,22 +618,20 @@ export default function CanvasBlock({
             : "hover:shadow-sm"
       } ${isDragging ? "opacity-80" : ""} ${isResizing ? "opacity-90" : ""} ${
         blockBase
-      } ${isSelected ? "ring-2 ring-black" : ""}`}
+      } ${isSelected ? "ring-2 ring-black" : ""} ${
+        isEditing ? "z-30 overflow-visible shadow-xl" : "overflow-hidden"
+      }`}
     >
       <div
         onMouseDown={(e) => {
           e.stopPropagation()
           onDragStart(id, e)
         }}
-        className={`-mx-3 -mt-3 mb-2 flex h-9 items-center justify-between rounded-t-2xl px-3 ${
+        className={`-mx-3 -mt-3 mb-2 flex h-9 items-center justify-end rounded-t-2xl px-3 ${
           isEditing ? "cursor-default" : isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/[0.02] to-transparent" />
-
-        <span className="relative z-10 text-xs font-medium uppercase tracking-wide text-gray-400">
-          {blockLabels[type]}
-        </span>
 
         {(type === "text" || type === "link" || type === "image") && isSelected && !isEditing && (
           <button
@@ -658,7 +648,7 @@ export default function CanvasBlock({
         )}
       </div>
 
-      <div className="h-[calc(100%-2rem)] overflow-hidden">{renderContent()}</div>
+      <div className={`h-[calc(100%-2rem)] ${isEditing ? "overflow-y-auto pr-1" : "overflow-hidden"}`}>{renderContent()}</div>
 
       <button
         type="button"
@@ -668,7 +658,7 @@ export default function CanvasBlock({
         }}
         onMouseDown={(e) => e.stopPropagation()}
         className={`absolute right-2 top-10 h-6 w-6 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
-          isSelected ? "flex" : "hidden group-hover:flex"
+          isEditing ? "hidden" : isSelected ? "flex" : "hidden group-hover:flex"
         }`}
         aria-label="Delete block"
       >
@@ -684,7 +674,7 @@ export default function CanvasBlock({
           onResizeStart(id, e)
         }}
         className={`absolute bottom-2 right-2 h-4 w-4 rounded-sm border border-gray-300 bg-white/90 transition ${
-          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          isEditing ? "opacity-0 pointer-events-none" : isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         } ${isResizing ? "cursor-se-resize" : "cursor-se-resize hover:bg-gray-50"}`}
       >
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[9px] text-gray-400">
