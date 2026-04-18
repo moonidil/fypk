@@ -1,4 +1,5 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 import { NextResponse } from 'next/server'
 
 //checks that the api route is working and that the database can be reached.

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@/generated/prisma/client"
 import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 import type { BlockType } from "@/types"
@@ -129,13 +130,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
 
-    const updateData: {
-      x?: number
-      y?: number
-      width?: number
-      height?: number
-      content?: unknown
-    } = {}
+    const updateData: Prisma.CanvasBlockUpdateInput = {}
 
     //updates position only if valid values were provided.
     if (x !== undefined) {
@@ -174,7 +169,10 @@ export async function PATCH(req: Request) {
     }
 
     if (content !== undefined) {
-      updateData.content = content
+      updateData.content =
+        content === null
+          ? Prisma.JsonNull
+          : (content as Prisma.InputJsonValue)
     }
 
     const updatedBlock = await prisma.canvasBlock.update({
@@ -183,40 +181,6 @@ export async function PATCH(req: Request) {
     })
 
     return NextResponse.json(updatedBlock)
-  } catch {
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
-  }
-}
-
-//deletes a canvas block by id if it belongs to the current user.
-export async function DELETE(req: Request) {
-  try {
-    const session = await auth()
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    }
-
-    const { id } = await req.json()
-
-    if (!id) {
-      return NextResponse.json({ error: "Block ID is required" }, { status: 400 })
-    }
-
-    //checks that the block belongs to the logged in user before deleting it.
-    const block = await prisma.canvasBlock.findUnique({
-      where: { id },
-    })
-
-    if (!block || block.userId !== session.user.id) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 })
-    }
-
-    await prisma.canvasBlock.delete({
-      where: { id },
-    })
-
-    return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }

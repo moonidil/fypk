@@ -24,7 +24,6 @@ type Props = {
   onResizeStart: (id: string, e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
-//gives all blocks a clean shared base style.
 const blockBase = "bg-white/85 backdrop-blur-sm border border-gray-200"
 
 const blockLabels: Record<BlockType, string> = {
@@ -305,31 +304,185 @@ function LinkBlockContent({
   )
 }
 
-//renders the inside content of each block depending on its type.
-function renderBlockView(type: BlockType, content: BlockContent) {
-  if (type === "image") {
+function ImageBlockContent({
+  content,
+  isEditing,
+  onStartEditing,
+  onStopEditing,
+  onSave,
+}: EditableContentProps) {
+  const [title, setTitle] = useState(content.title ?? "")
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState("")
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    setTitle(content.title ?? "")
+  }, [content.title])
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    setUploadError("")
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      const uploadData = await uploadRes.json().catch(() => null)
+
+      if (!uploadRes.ok) {
+        setUploadError(uploadData?.error || "Failed to upload image")
+        return
+      }
+
+      await onSave({
+        ...content,
+        title: title.trim(),
+        imageUrl: uploadData.url,
+      })
+
+      onStopEditing()
+    } catch {
+      setUploadError("Failed to upload image")
+    } finally {
+      setIsUploading(false)
+      e.target.value = ""
+    }
+  }
+
+  async function handleRemoveImage() {
+    await onSave({
+      ...content,
+      title: title.trim(),
+      imageUrl: "",
+    })
+
+    onStopEditing()
+  }
+
+  async function handleBlurSave(e: React.FocusEvent<HTMLDivElement>) {
+    const nextTarget = e.relatedTarget as Node | null
+
+    if (nextTarget && wrapperRef.current?.contains(nextTarget)) {
+      return
+    }
+
+    if (title !== (content.title ?? "")) {
+      await onSave({
+        ...content,
+        title: title.trim(),
+      })
+    }
+
+    onStopEditing()
+  }
+
+  if (isEditing) {
     return (
-      <>
-        {content.title && (
-          <p className="mt-2 text-sm font-medium text-gray-800">
-            {content.title}
-          </p>
-        )}
+      <div
+        ref={wrapperRef}
+        className="mt-2 flex h-full flex-col gap-2"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onBlurCapture={handleBlurSave}
+      >
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title"
+          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm font-medium text-gray-800 outline-none focus:border-gray-300"
+        />
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+            disabled={isUploading}
+          >
+            {isUploading ? "Uploading..." : content.imageUrl ? "Replace image" : "Choose image"}
+          </button>
+
+          {content.imageUrl && (
+            <button
+              type="button"
+              onClick={() => void handleRemoveImage()}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+              disabled={isUploading}
+            >
+              Remove image
+            </button>
+          )}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => void handleFileChange(e)}
+        />
+
+        {uploadError && <p className="text-[11px] text-red-500">{uploadError}</p>}
 
         {content.imageUrl ? (
           <img
             src={content.imageUrl}
-            alt={content.title || "Canvas image"}
-            className="mt-2 h-[calc(100%-2rem)] w-full rounded-lg object-cover"
+            alt={title || "Canvas image"}
+            className="min-h-0 flex-1 rounded-lg object-cover"
             draggable={false}
           />
         ) : (
-          <p className="mt-2 text-sm text-gray-500">No image added yet.</p>
+          <div className="flex min-h-[120px] flex-1 items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-400">
+            No image selected
+          </div>
         )}
-      </>
+      </div>
     )
   }
 
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onStartEditing()
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      className="mt-2 block h-[calc(100%-0.5rem)] w-full rounded-lg text-left transition hover:bg-gray-50/40"
+    >
+      {content.title ? (
+        <p className="text-sm font-medium text-gray-800">{content.title}</p>
+      ) : (
+        <p className="text-sm font-medium text-gray-400">Untitled image block</p>
+      )}
+
+      {content.imageUrl ? (
+        <img
+          src={content.imageUrl}
+          alt={content.title || "Canvas image"}
+          className="mt-2 h-[calc(100%-2rem)] w-full rounded-lg object-cover"
+          draggable={false}
+        />
+      ) : (
+        <div className="mt-2 flex h-[calc(100%-2rem)] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-400">
+          Click to add an image
+        </div>
+      )}
+    </button>
+  )
+}
+
+function renderBlockView(type: BlockType, content: BlockContent) {
   if (type === "skills") {
     return (
       <>
@@ -438,6 +591,18 @@ export default function CanvasBlock({
       )
     }
 
+    if (type === "image") {
+      return (
+        <ImageBlockContent
+          content={content}
+          isEditing={isEditing}
+          onStartEditing={() => onStartEditing(id)}
+          onStopEditing={onStopEditing}
+          onSave={(nextContent) => onSaveContent(id, nextContent)}
+        />
+      )
+    }
+
     return renderBlockView(type, content)
   }
 
@@ -478,7 +643,7 @@ export default function CanvasBlock({
           {blockLabels[type]}
         </span>
 
-        {(type === "text" || type === "link") && isSelected && !isEditing && (
+        {(type === "text" || type === "link" || type === "image") && isSelected && !isEditing && (
           <button
             type="button"
             onClick={(e) => {
@@ -495,7 +660,6 @@ export default function CanvasBlock({
 
       <div className="h-[calc(100%-2rem)] overflow-hidden">{renderContent()}</div>
 
-      {/*delete button appears when the block is selected or hovered.*/}
       <button
         type="button"
         onClick={(e) => {
@@ -511,7 +675,6 @@ export default function CanvasBlock({
         ✕
       </button>
 
-      {/*resize handle lives in the bottom-right corner only.*/}
       <button
         type="button"
         aria-label="Resize block"

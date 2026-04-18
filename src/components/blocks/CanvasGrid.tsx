@@ -514,16 +514,17 @@ export default function CanvasGrid() {
   //moves the drag preview as the mouse moves and saves on mouse up.
   useEffect(() => {
     if (!dragState) return
+    const activeDrag = dragState
 
     function handleMouseMove(e: MouseEvent) {
-      const block = blocks.find((item) => item.id === dragState.id)
+      const block = blocks.find((item) => item.id === activeDrag.id)
       if (!block) return
 
       const snappedPosition = getSnappedBlockPosition(
         e.clientX,
         e.clientY,
-        dragState.offsetX,
-        dragState.offsetY
+        activeDrag.offsetX,
+        activeDrag.offsetY
       )
 
       if (!snappedPosition) return
@@ -542,15 +543,15 @@ export default function CanvasGrid() {
     }
 
     async function handleMouseUp() {
-      const block = blocks.find((item) => item.id === dragState.id)
+      const block = blocks.find((item) => item.id === activeDrag.id)
       if (!block) {
         setDragState(null)
         setDragPreview(null)
         return
       }
 
-      const originalX = dragState.originalX
-      const originalY = dragState.originalY
+      const originalX = activeDrag.originalX
+      const originalY = activeDrag.originalY
       const nextX = dragPreview?.x ?? originalX
       const nextY = dragPreview?.y ?? originalY
       const moved = nextX !== originalX || nextY !== originalY
@@ -558,9 +559,7 @@ export default function CanvasGrid() {
       setDragState(null)
       setDragPreview(null)
 
-      if (!moved) {
-        return
-      }
+      if (!moved) return
 
       setBlocks((prev) =>
         prev.map((item) =>
@@ -615,9 +614,10 @@ export default function CanvasGrid() {
   //moves the resize preview as the mouse moves and saves on mouse up.
   useEffect(() => {
     if (!resizeState) return
+    const activeResize = resizeState
 
     function handleMouseMove(e: MouseEvent) {
-      const block = blocks.find((item) => item.id === resizeState.id)
+      const block = blocks.find((item) => item.id === activeResize.id)
       if (!block) return
 
       const snappedSize = getSnappedBlockSize(block, e.clientX, e.clientY)
@@ -637,15 +637,15 @@ export default function CanvasGrid() {
     }
 
     async function handleMouseUp() {
-      const block = blocks.find((item) => item.id === resizeState.id)
+      const block = blocks.find((item) => item.id === activeResize.id)
       if (!block) {
         setResizeState(null)
         setResizePreview(null)
         return
       }
 
-      const originalWidth = resizeState.originalWidth
-      const originalHeight = resizeState.originalHeight
+      const originalWidth = activeResize.originalWidth
+      const originalHeight = activeResize.originalHeight
       const nextWidth = resizePreview?.width ?? originalWidth
       const nextHeight = resizePreview?.height ?? originalHeight
       const changed =
@@ -845,7 +845,9 @@ export default function CanvasGrid() {
           {blocks.length === 0 && !menuCell && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2">
               <p className="text-center text-sm text-gray-500">
-                Hover a dot to start building your page.
+                Hover a plus to add a block. Drag from the block header to move
+                it. Use the bottom-right handle to resize it. Text, link, and
+                image blocks can be edited inline.
               </p>
             </div>
           )}
