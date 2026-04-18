@@ -18,7 +18,7 @@ type Props = {
 }
 
 //gives all blocks a clean shared base style.
-const blockBase = "bg-white/80 backdrop-blur-sm border border-gray-200"
+const blockBase = "bg-white/85 backdrop-blur-sm border border-gray-200"
 
 const blockLabels: Record<BlockType, string> = {
   text: "Text",
@@ -48,7 +48,7 @@ function renderBlockContent(type: BlockType, content: BlockContent) {
           </p>
         )}
         {content.text && (
-          <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700 line-clamp-5">
+          <p className="mt-1 line-clamp-5 whitespace-pre-wrap text-sm text-gray-700">
             {content.text}
           </p>
         )}
@@ -64,11 +64,13 @@ function renderBlockContent(type: BlockType, content: BlockContent) {
             {content.title}
           </p>
         )}
+
         {content.imageUrl ? (
           <img
             src={content.imageUrl}
             alt={content.title || "Canvas image"}
             className="mt-2 h-[calc(100%-2rem)] w-full rounded-lg object-cover"
+            draggable={false}
           />
         ) : (
           <p className="mt-2 text-sm text-gray-500">No image added yet.</p>
@@ -85,6 +87,7 @@ function renderBlockContent(type: BlockType, content: BlockContent) {
             {content.title}
           </p>
         )}
+
         {content.linkUrl ? (
           <a
             href={content.linkUrl}
@@ -92,6 +95,7 @@ function renderBlockContent(type: BlockType, content: BlockContent) {
             rel="noreferrer"
             className="mt-2 block break-words text-sm font-medium text-blue-600 hover:underline"
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             {content.linkLabel || content.linkUrl}
           </a>
@@ -110,6 +114,7 @@ function renderBlockContent(type: BlockType, content: BlockContent) {
             {content.title}
           </p>
         )}
+
         {content.skills && content.skills.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {content.skills.map((skill) => (
@@ -136,11 +141,13 @@ function renderBlockContent(type: BlockType, content: BlockContent) {
             {content.title}
           </p>
         )}
+
         {content.text && (
-          <p className="mt-1 text-sm text-gray-700 line-clamp-4">
+          <p className="mt-1 line-clamp-4 text-sm text-gray-700">
             {content.text}
           </p>
         )}
+
         {!content.title && !content.text && (
           <p className="mt-2 text-sm text-gray-500">No content added yet.</p>
         )}
@@ -193,10 +200,12 @@ export default function CanvasBlock({
         e.stopPropagation()
         onSelect(id)
       }}
-      className={`group relative cursor-grab overflow-hidden rounded-xl p-3 active:cursor-grabbing ${blockBase} ${
-        isSelected ? "ring-2 ring-black" : ""
-      } ${isDragging ? "opacity-70" : ""}`}
+      className={`group relative overflow-hidden rounded-2xl p-3 transition-shadow ${
+        isDragging ? "cursor-grabbing opacity-80 shadow-lg" : "cursor-grab"
+      } ${blockBase} ${isSelected ? "ring-2 ring-black" : "hover:shadow-sm"}`}
     >
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/[0.02] to-transparent" />
+
       <span className="text-xs font-medium uppercase tracking-wide text-gray-400">
         {blockLabels[type]}
       </span>
@@ -207,11 +216,13 @@ export default function CanvasBlock({
 
       {/*delete button appears when the block is selected or hovered.*/}
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation()
           onDelete(id)
         }}
-        className={`absolute right-2 top-2 h-6 w-6 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 hover:bg-red-200 ${
+        onMouseDown={(e) => e.stopPropagation()}
+        className={`absolute right-2 top-2 h-6 w-6 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
           isSelected ? "flex" : "hidden group-hover:flex"
         }`}
         aria-label="Delete block"

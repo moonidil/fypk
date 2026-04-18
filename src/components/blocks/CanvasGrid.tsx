@@ -167,6 +167,26 @@ export default function CanvasGrid() {
     }
   }
 
+  //snaps a dragged block back onto the grid based on its top-left.
+  function getSnappedBlockPosition(
+    clientX: number,
+    clientY: number,
+    offsetX: number,
+    offsetY: number
+  ) {
+    const grid = gridRef.current
+    if (!grid) return null
+
+    const rect = grid.getBoundingClientRect()
+    const rawLeft = clientX - rect.left - offsetX
+    const rawTop = clientY - rect.top - offsetY
+
+    return {
+      x: Math.round(rawLeft / (CELL_SIZE + GAP)),
+      y: Math.round(rawTop / (CELL_SIZE + GAP)),
+    }
+  }
+
   function isInsideGrid(x: number, y: number) {
     return x >= 0 && y >= 0 && x < GRID_COLS && y < GRID_ROWS
   }
@@ -188,6 +208,7 @@ export default function CanvasGrid() {
   function openMenuAtCell(x: number, y: number) {
     if (!isInsideGrid(x, y)) return
     if (getBlockAtCell(x, y)) return
+    if (dragState) return
 
     setSelectedBlockId(null)
     setMenuCell({ x, y })
@@ -237,6 +258,8 @@ export default function CanvasGrid() {
 
   //blank canvas clicks should only clear selection and menus.
   function handleCanvasClick() {
+    if (dragState) return
+
     setSelectedBlockId(null)
     setMenuCell(null)
     setMenuPixelPosition(null)
@@ -245,6 +268,8 @@ export default function CanvasGrid() {
   //right click still works as a shortcut for empty cells.
   function handleCanvasContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault()
+
+    if (dragState) return
 
     const position = getGridPositionFromMouse(e.clientX, e.clientY)
     if (!position) return
@@ -340,6 +365,7 @@ export default function CanvasGrid() {
     setMenuCell(null)
     setMenuPixelPosition(null)
     setHoveredAnchor(null)
+    setError("")
 
     setDragState({
       id,
@@ -357,29 +383,28 @@ export default function CanvasGrid() {
     if (!dragState) return
 
     function handleMouseMove(e: MouseEvent) {
-      const grid = gridRef.current
-      if (!grid) return
-
       const block = blocks.find((item) => item.id === dragState.id)
       if (!block) return
 
-      const rect = grid.getBoundingClientRect()
-      const rawLeft = e.clientX - rect.left - dragState.offsetX
-      const rawTop = e.clientY - rect.top - dragState.offsetY
+      const snappedPosition = getSnappedBlockPosition(
+        e.clientX,
+        e.clientY,
+        dragState.offsetX,
+        dragState.offsetY
+      )
 
-      const candidateX = Math.round(rawLeft / (CELL_SIZE + GAP))
-      const candidateY = Math.round(rawTop / (CELL_SIZE + GAP))
+      if (!snappedPosition) return
 
       if (
         canPlaceBlockAt(
-          candidateX,
-          candidateY,
+          snappedPosition.x,
+          snappedPosition.y,
           block.width,
           block.height,
           block.id
         )
       ) {
-        setDragPreview({ x: candidateX, y: candidateY })
+        setDragPreview(snappedPosition)
       }
     }
 
@@ -397,9 +422,10 @@ export default function CanvasGrid() {
       const nextY = dragPreview?.y ?? originalY
       const moved = nextX !== originalX || nextY !== originalY
 
+      setDragState(null)
+      setDragPreview(null)
+
       if (!moved) {
-        setDragState(null)
-        setDragPreview(null)
         return
       }
 
@@ -408,9 +434,6 @@ export default function CanvasGrid() {
           item.id === block.id ? { ...item, x: nextX, y: nextY } : item
         )
       )
-
-      setDragState(null)
-      setDragPreview(null)
 
       try {
         const res = await fetch("/api/canvas", {
@@ -428,7 +451,9 @@ export default function CanvasGrid() {
         if (!res.ok) {
           setBlocks((prev) =>
             prev.map((item) =>
-              item.id === block.id ? { ...item, x: originalX, y: originalY } : item
+              item.id === block.id
+                ? { ...item, x: originalX, y: originalY }
+                : item
             )
           )
           setError(data?.error || "Failed to save block position")
@@ -436,7 +461,9 @@ export default function CanvasGrid() {
       } catch {
         setBlocks((prev) =>
           prev.map((item) =>
-            item.id === block.id ? { ...item, x: originalX, y: originalY } : item
+            item.id === block.id
+              ? { ...item, x: originalX, y: originalY }
+              : item
           )
         )
         setError("Failed to save block position")
@@ -476,8 +503,12 @@ export default function CanvasGrid() {
           ref={gridRef}
           onClick={handleCanvasClick}
           onContextMenu={handleCanvasContextMenu}
-          onMouseLeave={() => setHoveredAnchor(null)}
-          className="relative"
+          onMouseLeave={() => {
+            if (!dragState) {
+              setHoveredAnchor(null)
+            }
+          }}
+          className="relative select-none"
           style={{ width: gridWidth, height: gridHeight }}
         >
           {Array.from({ length: GRID_ROWS }).map((_, row) =>
@@ -495,20 +526,39 @@ export default function CanvasGrid() {
                   key={cellKey}
                   type="button"
                   aria-label={`Add block at column ${col + 1}, row ${row + 1}`}
-                  onMouseEnter={() => setHoveredAnchor({ x: col, y: row })}
+                  onMouseEnter={() => {
+                    if (!dragState) {
+                      setHoveredAnchor({ x: col, y: row })
+                    }
+                  }}
                   onMouseLeave={() => {
-                    if (menuCell?.x !== col || menuCell?.y !== row) {
+                    if (
+                      !dragState &&
+                      (menuCell?.x !== col || menuCell?.y !== row)
+                    ) {
                       setHoveredAnchor(null)
                     }
                   }}
-                  onFocus={() => setHoveredAnchor({ x: col, y: row })}
-                  onBlur={() => setHoveredAnchor(null)}
+                  onFocus={() => {
+                    if (!dragState) {
+                      setHoveredAnchor({ x: col, y: row })
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!dragState) {
+                      setHoveredAnchor(null)
+                    }
+                  }}
                   onClick={(e) => {
                     e.stopPropagation()
                     openMenuAtCell(col, row)
                   }}
-                  className={`absolute z-10 flex cursor-pointer items-center justify-center rounded-full transition-all duration-150 ${
-                    isHovered ? "bg-gray-100/80" : "bg-transparent"
+                  className={`absolute z-10 flex items-center justify-center rounded-full transition-all duration-150 ${
+                    dragState
+                      ? "pointer-events-none opacity-0"
+                      : isHovered
+                        ? "cursor-pointer bg-gray-100/80"
+                        : "cursor-pointer bg-transparent"
                   }`}
                   style={{
                     left: col * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 22,
@@ -546,7 +596,7 @@ export default function CanvasGrid() {
           {blocks.length === 0 && !menuCell && (
             <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2">
               <p className="text-center text-sm text-gray-500">
-                  Hover a dot to start building your page.
+                Hover a dot to start building your page.
               </p>
             </div>
           )}
