@@ -12,9 +12,11 @@ type Props = {
   content: BlockContent
   isSelected: boolean
   isDragging: boolean
+  isResizing: boolean
   onDelete: (id: string) => void
   onSelect: (id: string) => void
   onDragStart: (id: string, e: React.MouseEvent<HTMLDivElement>) => void
+  onResizeStart: (id: string, e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 //gives all blocks a clean shared base style.
@@ -168,11 +170,12 @@ export default function CanvasBlock({
   content,
   isSelected,
   isDragging,
+  isResizing,
   onDelete,
   onSelect,
   onDragStart,
+  onResizeStart,
 }: Props) {
-  //each cell is 120px wide and 120px tall with a 12px gap.
   const CELL_SIZE = 120
   const GAP = 12
 
@@ -201,8 +204,14 @@ export default function CanvasBlock({
         onSelect(id)
       }}
       className={`group relative overflow-hidden rounded-2xl p-3 transition-shadow ${
-        isDragging ? "cursor-grabbing opacity-80 shadow-lg" : "cursor-grab"
-      } ${blockBase} ${isSelected ? "ring-2 ring-black" : "hover:shadow-sm"}`}
+        isDragging || isResizing
+          ? "shadow-lg"
+          : isSelected
+            ? "shadow-sm"
+            : "hover:shadow-sm"
+      } ${isDragging ? "cursor-grabbing opacity-80" : "cursor-grab"} ${
+        isResizing ? "opacity-90" : ""
+      } ${blockBase} ${isSelected ? "ring-2 ring-black" : ""}`}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/[0.02] to-transparent" />
 
@@ -228,6 +237,24 @@ export default function CanvasBlock({
         aria-label="Delete block"
       >
         ✕
+      </button>
+
+      {/*resize handle lives in the bottom-right corner only.*/}
+      <button
+        type="button"
+        aria-label="Resize block"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => {
+          e.stopPropagation()
+          onResizeStart(id, e)
+        }}
+        className={`absolute bottom-2 right-2 h-4 w-4 rounded-sm border border-gray-300 bg-white/90 transition ${
+          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        } ${isResizing ? "cursor-se-resize" : "cursor-se-resize hover:bg-gray-50"}`}
+      >
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[9px] text-gray-400">
+          ↘
+        </span>
       </button>
     </div>
   )
