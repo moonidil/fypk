@@ -731,11 +731,6 @@ export default function CanvasGrid() {
 
   return (
     <div className="space-y-4">
-      <p className="text-center text-sm text-gray-500">
-        Hover a plus to add a block. Drag from the block header to move it. Use
-        the bottom-right handle to resize it. Text and link blocks can be edited
-        inline.
-      </p>
 
       {error && <p className="text-center text-sm text-red-500">{error}</p>}
 
