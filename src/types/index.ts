@@ -15,6 +15,18 @@ export interface BlockContent {
   linkUrl?: string
   linkLabel?: string
   skills?: string[]
+
+  //link preview fields
+  description?: string
+  siteName?: string
+  previewImage?: string
+
+  //github specific preview fields
+  githubOwner?: string
+  githubRepo?: string
+  githubStars?: number
+  githubLanguage?: string
+  githubUpdatedAt?: string
 }
 
 //describes the size and placement of a block within the grid layout.
