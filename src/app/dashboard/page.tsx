@@ -17,9 +17,6 @@ export default async function DashboardPage() {
       displayName: true,
       slug: true,
       bio: true,
-      heroX: true,
-      heroY: true,
-      heroWidth: true,
     },
   })
 
@@ -27,7 +24,6 @@ export default async function DashboardPage() {
     redirect("/onboarding")
   }
 
-  
   return (
     <main className="min-h-screen bg-[#f6f6f3] p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-end gap-2">
@@ -51,9 +47,9 @@ export default async function DashboardPage() {
           displayName: profile.displayName,
           slug: profile.slug,
           bio: profile.bio,
-          x: profile.heroX,
-          y: profile.heroY,
-          width: profile.heroWidth,
+          x: 1,
+          y: 1,
+          width: 3,
         }}
       />
     </main>
