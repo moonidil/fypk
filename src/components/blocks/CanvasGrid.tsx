@@ -43,21 +43,10 @@ type ResizeState = {
   originalHeight: number
 } | null
 
-type Cell = {
-  x: number
-  y: number
-}
-
 const CELL_SIZE = 80
 const GAP = 6
 const GRID_COLS = 12
 const GRID_ROWS = 12
-const MIN_BLOCK_WIDTH = 1
-const MIN_BLOCK_HEIGHT = 1
-const MAX_BLOCK_WIDTH = 5
-const MAX_BLOCK_HEIGHT = 5
-const LEFT_RAIL_WIDTH = 92
-const SURFACE_PADDING = 24
 
 function rectanglesOverlap(
   a: { x: number; y: number; width: number; height: number },
@@ -77,14 +66,9 @@ export default function CanvasGrid({ hero }: Props) {
   const [error, setError] = useState("")
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
-  const [menuCell, setMenuCell] = useState<Cell | null>(null)
-  const [menuPixelPosition, setMenuPixelPosition] = useState<{
-    left: number
-    top: number
-  } | null>(null)
-  const [hoveredAnchor, setHoveredAnchor] = useState<Cell | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [dragState, setDragState] = useState<DragState>(null)
-  const [dragPreview, setDragPreview] = useState<Cell | null>(null)
+  const [dragPreview, setDragPreview] = useState<{ x: number; y: number } | null>(null)
   const [resizeState, setResizeState] = useState<ResizeState>(null)
   const [resizePreview, setResizePreview] = useState<{
     width: number
@@ -187,27 +171,6 @@ export default function CanvasGrid({ hero }: Props) {
     )
   }
 
-  function isHeroAtCell(x: number, y: number) {
-    return rectanglesOverlap(
-      { x, y, width: 1, height: 1 },
-      heroRect
-    )
-  }
-
-  function getGridPositionFromMouse(clientX: number, clientY: number) {
-    const grid = gridRef.current
-    if (!grid) return null
-
-    const rect = grid.getBoundingClientRect()
-    const localX = clientX - rect.left
-    const localY = clientY - rect.top
-
-    return {
-      x: Math.floor(localX / (CELL_SIZE + GAP)),
-      y: Math.floor(localY / (CELL_SIZE + GAP)),
-    }
-  }
-
   function getSnappedBlockPosition(
     clientX: number,
     clientY: number,
@@ -231,7 +194,7 @@ export default function CanvasGrid({ hero }: Props) {
     block: Block,
     clientX: number,
     clientY: number
-  ): { width: number; height: number } | null {
+  ) {
     const grid = gridRef.current
     if (!grid) return null
 
@@ -245,46 +208,10 @@ export default function CanvasGrid({ hero }: Props) {
     const rawWidth = Math.round((localX - blockLeft + GAP) / (CELL_SIZE + GAP))
     const rawHeight = Math.round((localY - blockTop + GAP) / (CELL_SIZE + GAP))
 
-    const width = Math.max(
-      MIN_BLOCK_WIDTH,
-      Math.min(MAX_BLOCK_WIDTH, rawWidth)
-    )
-
-    const height = Math.max(
-      MIN_BLOCK_HEIGHT,
-      Math.min(MAX_BLOCK_HEIGHT, rawHeight)
-    )
+    const width = Math.max(1, Math.min(5, rawWidth))
+    const height = Math.max(1, Math.min(5, rawHeight))
 
     return { width, height }
-  }
-
-  function isInsideGrid(x: number, y: number) {
-    return x >= 0 && y >= 0 && x < GRID_COLS && y < GRID_ROWS
-  }
-
-  function getMenuPositionForCell(x: number, y: number) {
-    const baseLeft = x * (CELL_SIZE + GAP) + 24
-    const baseTop = y * (CELL_SIZE + GAP) + 24
-    const menuWidth = 224
-    const menuHeight = 300
-    const gridWidth = GRID_COLS * (CELL_SIZE + GAP) - GAP
-    const gridHeight = GRID_ROWS * (CELL_SIZE + GAP) - GAP
-
-    return {
-      left: Math.max(12, Math.min(baseLeft, gridWidth - menuWidth - 12)),
-      top: Math.max(12, Math.min(baseTop, gridHeight - menuHeight - 12)),
-    }
-  }
-
-  function openMenuAtCell(x: number, y: number) {
-    if (!isInsideGrid(x, y)) return
-    if (getBlockAtCell(x, y)) return
-    if (isHeroAtCell(x, y)) return
-    if (dragState || resizeState || editingBlockId) return
-
-    setSelectedBlockId(null)
-    setMenuCell({ x, y })
-    setMenuPixelPosition(getMenuPositionForCell(x, y))
   }
 
   function getDefaultContent(type: BlockType): BlockContent {
@@ -295,7 +222,7 @@ export default function CanvasGrid({ hero }: Props) {
     if (type === "image") {
       return {
         title: "Image",
-        imageUrl: "https://placehold.co/600x400?text=Image",
+        imageUrl: "",
       }
     }
 
@@ -329,57 +256,57 @@ export default function CanvasGrid({ hero }: Props) {
     }
   }
 
-  function handleSurfaceClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (dragState || resizeState) return
-
-    const position = getGridPositionFromMouse(e.clientX, e.clientY)
-
-    if (!position) {
-      setSelectedBlockId(null)
-      setMenuCell(null)
-      setMenuPixelPosition(null)
-      return
+  function getInitialSize(type: BlockType) {
+    if (type === "skills") {
+      return { width: 2, height: 1 }
     }
 
-    const clickedBlock = getBlockAtCell(position.x, position.y)
-
-    if (clickedBlock || isHeroAtCell(position.x, position.y)) {
-      setMenuCell(null)
-      setMenuPixelPosition(null)
-      return
+    if (type === "link") {
+      return { width: 2, height: 1 }
     }
 
-    openMenuAtCell(position.x, position.y)
+    if (type === "image") {
+      return { width: 2, height: 2 }
+    }
+
+    if (type === "project") {
+      return { width: 2, height: 2 }
+    }
+
+    if (type === "education") {
+      return { width: 2, height: 2 }
+    }
+
+    return { width: 2, height: 2 }
   }
 
-  function handleSurfaceContextMenu(e: React.MouseEvent<HTMLDivElement>) {
-    e.preventDefault()
-
-    if (dragState || resizeState || editingBlockId) return
-
-    const position = getGridPositionFromMouse(e.clientX, e.clientY)
-    if (!position) return
-
-    const clickedBlock = getBlockAtCell(position.x, position.y)
-
-    if (clickedBlock) {
-      setSelectedBlockId(clickedBlock.id)
-      setMenuCell(null)
-      setMenuPixelPosition(null)
-      return
+  function findFirstAvailablePosition(width: number, height: number) {
+    for (let row = 0; row <= GRID_ROWS - height; row += 1) {
+      for (let col = 0; col <= GRID_COLS - width; col += 1) {
+        if (canPlaceBlockAt(col, row, width, height)) {
+          return { x: col, y: row }
+        }
+      }
     }
 
-    if (isHeroAtCell(position.x, position.y)) {
-      setMenuCell(null)
-      setMenuPixelPosition(null)
-      return
-    }
+    return null
+  }
 
-    openMenuAtCell(position.x, position.y)
+  function handleSurfaceClick() {
+    if (dragState || resizeState) return
+    setSelectedBlockId(null)
+    setMenuOpen(false)
   }
 
   async function handleAddBlock(type: BlockType) {
-    if (!menuCell) return
+    const size = getInitialSize(type)
+    const position = findFirstAvailablePosition(size.width, size.height)
+
+    if (!position) {
+      setError("No space left on the canvas for that block.")
+      setMenuOpen(false)
+      return
+    }
 
     setError("")
 
@@ -389,10 +316,10 @@ export default function CanvasGrid({ hero }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type,
-          x: menuCell.x,
-          y: menuCell.y,
-          width: 1,
-          height: 1,
+          x: position.x,
+          y: position.y,
+          width: size.width,
+          height: size.height,
           content: getDefaultContent(type),
         }),
       })
@@ -406,10 +333,8 @@ export default function CanvasGrid({ hero }: Props) {
 
       setBlocks((prev) => [...prev, data])
       setSelectedBlockId(data.id)
-      setEditingBlockId(null)
-      setMenuCell(null)
-      setMenuPixelPosition(null)
-      setHoveredAnchor(null)
+      setEditingBlockId(data.id)
+      setMenuOpen(false)
     } catch {
       setError("Failed to add block")
     }
@@ -486,8 +411,7 @@ export default function CanvasGrid({ hero }: Props) {
     })
 
     setSelectedBlockId(id)
-    setMenuCell(null)
-    setMenuPixelPosition(null)
+    setMenuOpen(false)
   }
 
   function handleResizeStart(id: string, e: React.MouseEvent<HTMLButtonElement>) {
@@ -503,13 +427,15 @@ export default function CanvasGrid({ hero }: Props) {
     })
 
     setSelectedBlockId(id)
-    setMenuCell(null)
-    setMenuPixelPosition(null)
+    setMenuOpen(false)
   }
 
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
       if (dragState) {
+        const block = blocks.find((item) => item.id === dragState.id)
+        if (!block) return
+
         const nextPosition = getSnappedBlockPosition(
           e.clientX,
           e.clientY,
@@ -520,12 +446,11 @@ export default function CanvasGrid({ hero }: Props) {
         if (!nextPosition) return
 
         if (
-          canPlaceBlockAt(nextPosition.x, nextPosition.y, 1, 1, dragState.id) ||
           canPlaceBlockAt(
             nextPosition.x,
             nextPosition.y,
-            blocks.find((b) => b.id === dragState.id)?.width ?? 1,
-            blocks.find((b) => b.id === dragState.id)?.height ?? 1,
+            block.width,
+            block.height,
             dragState.id
           )
         ) {
@@ -553,22 +478,7 @@ export default function CanvasGrid({ hero }: Props) {
         ) {
           setResizePreview(nextSize)
         }
-
-        return
       }
-
-      const position = getGridPositionFromMouse(e.clientX, e.clientY)
-      if (!position || !isInsideGrid(position.x, position.y)) {
-        setHoveredAnchor(null)
-        return
-      }
-
-      if (getBlockAtCell(position.x, position.y) || isHeroAtCell(position.x, position.y)) {
-        setHoveredAnchor(null)
-        return
-      }
-
-      setHoveredAnchor(position)
     }
 
     async function handleMouseUp() {
@@ -679,7 +589,7 @@ export default function CanvasGrid({ hero }: Props) {
       window.removeEventListener("mousemove", handleMouseMove)
       window.removeEventListener("mouseup", handleMouseUp)
     }
-  }, [blocks, dragPreview, dragState, heroRect, resizePreview, resizeState])
+  }, [blocks, dragPreview, dragState, resizePreview, resizeState, heroRect])
 
   const gridWidth = GRID_COLS * CELL_SIZE + (GRID_COLS - 1) * GAP
   const gridHeight = GRID_ROWS * CELL_SIZE + (GRID_ROWS - 1) * GAP
@@ -720,7 +630,6 @@ export default function CanvasGrid({ hero }: Props) {
               backgroundPosition: "0 0",
             }}
             onClick={handleSurfaceClick}
-            onContextMenu={handleSurfaceContextMenu}
           >
             <div
               className="absolute rounded-[28px] bg-transparent px-1 py-1 transition-transform duration-300 hover:scale-[1.01]"
@@ -752,18 +661,6 @@ export default function CanvasGrid({ hero }: Props) {
               )}
             </div>
 
-            {hoveredAnchor && !menuCell && !selectedBlockId && (
-              <div
-                className="pointer-events-none absolute rounded-full bg-black/5"
-                style={{
-                  left: hoveredAnchor.x * (CELL_SIZE + GAP) + 24,
-                  top: hoveredAnchor.y * (CELL_SIZE + GAP) + 24,
-                  width: 32,
-                  height: 32,
-                }}
-              />
-            )}
-
             {displayedBlocks.map((block) => (
               <CanvasBlock
                 key={block.id}
@@ -781,14 +678,12 @@ export default function CanvasGrid({ hero }: Props) {
                 onDelete={handleDeleteBlock}
                 onSelect={(id) => {
                   setSelectedBlockId(id)
-                  setMenuCell(null)
-                  setMenuPixelPosition(null)
+                  setMenuOpen(false)
                 }}
                 onStartEditing={(id) => {
                   setSelectedBlockId(id)
                   setEditingBlockId(id)
-                  setMenuCell(null)
-                  setMenuPixelPosition(null)
+                  setMenuOpen(false)
                 }}
                 onStopEditing={() => setEditingBlockId(null)}
                 onSaveContent={handleSaveContent}
@@ -797,28 +692,36 @@ export default function CanvasGrid({ hero }: Props) {
               />
             ))}
 
-            {menuPixelPosition && menuCell && (
+            {menuOpen && (
               <CanvasAddMenu
-                x={menuPixelPosition.left}
-                y={menuPixelPosition.top}
+                x={gridWidth - 300}
+                y={gridHeight / 2 - 180}
                 onSelect={handleAddBlock}
-                onClose={() => {
-                  setMenuCell(null)
-                  setMenuPixelPosition(null)
-                }}
+                onClose={() => setMenuOpen(false)}
               />
             )}
 
             {blocks.length === 0 && !error && (
-              <div className="absolute bottom-4 right-4 max-w-sm rounded-[24px] bg-white/80 px-4 py-3 text-sm text-gray-500 shadow-sm backdrop-blur-sm">
-                Click empty space to place something on the canvas.
+              <div className="absolute bottom-4 right-24 max-w-sm rounded-[24px] bg-white/80 px-4 py-3 text-sm text-gray-500 shadow-sm backdrop-blur-sm">
+                Use the side + button to add something to the canvas.
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedBlockId(null)
+                setMenuOpen((open) => !open)
+              }}
+              className="absolute right-4 top-1/2 z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black text-2xl text-white shadow-[0_16px_40px_rgba(0,0,0,0.18)] transition hover:scale-[1.03] hover:opacity-95"
+              aria-label="Add block"
+            >
+              +
+            </button>
           </div>
 
-          {error && (
-            <p className="mt-4 text-sm text-red-500">{error}</p>
-          )}
+          {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
         </div>
       </div>
     </div>
