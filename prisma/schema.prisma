@@ -13,7 +13,6 @@ model User {
   passwordHash        String?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-
   profile             Profile?
   projects            Project[]
   canvasBlocks        CanvasBlock[]
@@ -33,20 +32,29 @@ model Profile {
   heroWidth   Int      @default(3)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+//visibility states for an individual project
+enum Visibility {
+  DRAFT
+  PRIVATE
+  PUBLIC
+}
+
 model Project {
-  id           String         @id @default(cuid())
+  id           String          @id @default(cuid())
   userId       String
   title        String
   description  String?
-  status       String         @default("draft")
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  visibility   Visibility      @default(DRAFT)
+  problem      String?
+  approach     String?
+  outcome      String?
+  reflection   String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   artefacts    Artefact[]
   tags         ProjectTag[]
   canvasBlocks CanvasBlock[]
@@ -61,7 +69,6 @@ model Artefact {
   content   String?
   label     String?
   createdAt DateTime @default(now())
-
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
@@ -74,7 +81,6 @@ model Tag {
 model ProjectTag {
   projectId String
   tagId     String
-
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
@@ -93,7 +99,6 @@ model CanvasBlock {
   content   Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   project   Project? @relation(fields: [projectId], references: [id])
 }
@@ -104,7 +109,6 @@ model TimelineEntry {
   label     String
   date      DateTime
   note      String?
-
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
@@ -115,7 +119,6 @@ model Feedback {
   rating     Int?
   comment    String?
   createdAt  DateTime @default(now())
-
   receiver   User     @relation("FeedbackReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
 }
 
@@ -126,7 +129,6 @@ model PlatformConnection {
   accessToken  String?
   refreshToken String?
   connectedAt  DateTime @default(now())
-
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, platform])
