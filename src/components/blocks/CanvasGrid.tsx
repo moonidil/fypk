@@ -591,6 +591,7 @@ export default function CanvasGrid({ hero }: Props) {
     }
   }, [blocks, dragPreview, dragState, resizePreview, resizeState, heroRect])
 
+  const interactionActive = Boolean(dragState || resizeState)
   const gridWidth = GRID_COLS * CELL_SIZE + (GRID_COLS - 1) * GAP
   const gridHeight = GRID_ROWS * CELL_SIZE + (GRID_ROWS - 1) * GAP
 
@@ -675,6 +676,7 @@ export default function CanvasGrid({ hero }: Props) {
                 isDragging={dragState?.id === block.id}
                 isResizing={resizeState?.id === block.id}
                 isEditing={editingBlockId === block.id}
+                suppressHoverChrome={interactionActive}
                 onDelete={handleDeleteBlock}
                 onSelect={(id) => {
                   setSelectedBlockId(id)

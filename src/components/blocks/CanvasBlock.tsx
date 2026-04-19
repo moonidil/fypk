@@ -15,6 +15,7 @@ type Props = {
   isDragging: boolean
   isResizing: boolean
   isEditing: boolean
+  suppressHoverChrome: boolean
   onDelete: (id: string) => void
   onSelect: (id: string) => void
   onStartEditing: (id: string) => void
@@ -43,8 +44,7 @@ type EditableContentProps = {
 const CELL_SIZE = 80
 const GAP = 6
 
-const blockBase =
-  "bg-white/72 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+const blockBase = "bg-transparent shadow-none backdrop-blur-0"
 
 function TextBlockContent({
   content,
@@ -53,28 +53,26 @@ function TextBlockContent({
   onStopEditing,
   onSave,
 }: EditableContentProps) {
-  const [title, setTitle] = useState(content.title ?? "")
-  const [text, setText] = useState(content.text ?? "")
+  const [text, setText] = useState(content.text ?? content.title ?? "")
   const [isSaving, setIsSaving] = useState(false)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
-  const titleInputRef = useRef<HTMLInputElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
-    setTitle(content.title ?? "")
-    setText(content.text ?? "")
-  }, [content.title, content.text])
+    setText(content.text ?? content.title ?? "")
+  }, [content.text, content.title])
 
   useEffect(() => {
     if (isEditing) {
       queueMicrotask(() => {
-        titleInputRef.current?.focus()
+        textareaRef.current?.focus()
       })
     }
   }, [isEditing])
 
   const hasChanges = useMemo(() => {
-    return title !== (content.title ?? "") || text !== (content.text ?? "")
-  }, [content.title, content.text, text, title])
+    return text !== (content.text ?? content.title ?? "")
+  }, [content.text, content.title, text])
 
   async function saveIfNeeded() {
     if (!hasChanges) {
@@ -87,7 +85,7 @@ function TextBlockContent({
     try {
       await onSave({
         ...content,
-        title: title.trim(),
+        title: "",
         text: text.trim(),
       })
     } finally {
@@ -113,19 +111,12 @@ function TextBlockContent({
           void saveIfNeeded()
         }}
       >
-        <input
-          ref={titleInputRef}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title"
-          className="rounded-2xl bg-white px-3 py-2 text-sm font-medium text-gray-800 outline-none ring-1 ring-gray-200 focus:ring-gray-300"
-        />
-
         <textarea
+          ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Write something here..."
-          className="min-h-[140px] flex-1 resize-none rounded-2xl bg-white px-3 py-3 text-sm text-gray-700 outline-none ring-1 ring-gray-200 focus:ring-gray-300"
+          className="min-h-[180px] flex-1 resize-none bg-transparent text-[15px] leading-7 text-gray-800 outline-none"
         />
 
         <div className="text-[11px] text-gray-400">
@@ -145,16 +136,12 @@ function TextBlockContent({
       onMouseDown={(e) => e.stopPropagation()}
       className="block h-full w-full text-left"
     >
-      {content.title && (
-        <p className="text-sm font-medium text-gray-900">{content.title}</p>
-      )}
-
       {content.text ? (
-        <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">
+        <p className="whitespace-pre-wrap text-[15px] leading-7 text-gray-800">
           {content.text}
         </p>
       ) : (
-        <p className="text-sm text-gray-400">Click to add text.</p>
+        <p className="text-[15px] text-gray-400">Click to add text.</p>
       )}
     </button>
   )
@@ -292,6 +279,131 @@ function LinkBlockContent({
         </a>
       ) : (
         <p className="mt-1 text-sm text-gray-400">Click to add a link.</p>
+      )}
+    </button>
+  )
+}
+
+
+function SkillsBlockContent({
+  content,
+  isEditing,
+  onStartEditing,
+  onStopEditing,
+  onSave,
+}: EditableContentProps) {
+  const [value, setValue] = useState((content.skills ?? []).join(", "))
+  const [isSaving, setIsSaving] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    setValue((content.skills ?? []).join(", "))
+  }, [content.skills])
+
+  useEffect(() => {
+    if (isEditing) {
+      queueMicrotask(() => {
+        inputRef.current?.focus()
+      })
+    }
+  }, [isEditing])
+
+  const parsedSkills = value
+    .split(",")
+    .map((skill) => skill.trim())
+    .filter(Boolean)
+
+  const hasChanges = useMemo(() => {
+    return parsedSkills.join("|") !== (content.skills ?? []).join("|")
+  }, [content.skills, parsedSkills])
+
+  async function saveIfNeeded() {
+    if (!hasChanges) {
+      onStopEditing()
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      await onSave({
+        ...content,
+        title: "",
+        skills: parsedSkills,
+      })
+    } finally {
+      setIsSaving(false)
+      onStopEditing()
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div
+        ref={wrapperRef}
+        className="flex min-h-full flex-col gap-2"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onBlurCapture={(e) => {
+          const nextTarget = e.relatedTarget as Node | null
+
+          if (nextTarget && wrapperRef.current?.contains(nextTarget)) {
+            return
+          }
+
+          void saveIfNeeded()
+        }}
+      >
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="React, TypeScript, Prisma"
+          className="bg-transparent text-sm text-gray-800 outline-none"
+        />
+
+        <div className="flex flex-wrap gap-x-3 gap-y-2">
+          {parsedSkills.map((skill) => (
+            <span
+              key={skill}
+              className="text-sm font-medium text-gray-700"
+            >
+              {skill}
+            </span>
+          ))}
+        </div>
+
+        <div className="text-[11px] text-gray-400">
+          {isSaving ? "Saving..." : "Comma separate skills"}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onStartEditing()
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      className="block h-full w-full text-left"
+    >
+      {content.skills && content.skills.length > 0 ? (
+        <div className="flex flex-wrap gap-x-3 gap-y-2">
+          {content.skills.map((skill) => (
+            <span
+              key={skill}
+              className="text-sm font-medium text-gray-700"
+            >
+              {skill}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-400">Click to add skills.</p>
       )}
     </button>
   )
@@ -476,6 +588,160 @@ function ImageBlockContent({
   )
 }
 
+function ProjectBlockContent({
+  content,
+  isEditing,
+  onStartEditing,
+  onStopEditing,
+  onSave,
+}: EditableContentProps) {
+  const [title, setTitle] = useState(content.title ?? "")
+  const [text, setText] = useState(content.text ?? "")
+  const [linkUrl, setLinkUrl] = useState(content.linkUrl ?? "")
+  const [linkLabel, setLinkLabel] = useState(content.linkLabel ?? "")
+  const [isSaving, setIsSaving] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const titleInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    setTitle(content.title ?? "")
+    setText(content.text ?? "")
+    setLinkUrl(content.linkUrl ?? "")
+    setLinkLabel(content.linkLabel ?? "")
+  }, [content.title, content.text, content.linkUrl, content.linkLabel])
+
+  useEffect(() => {
+    if (isEditing) {
+      queueMicrotask(() => {
+        titleInputRef.current?.focus()
+      })
+    }
+  }, [isEditing])
+
+  const hasChanges = useMemo(() => {
+    return (
+      title !== (content.title ?? "") ||
+      text !== (content.text ?? "") ||
+      linkUrl !== (content.linkUrl ?? "") ||
+      linkLabel !== (content.linkLabel ?? "")
+    )
+  }, [content.title, content.text, content.linkUrl, content.linkLabel, title, text, linkUrl, linkLabel])
+
+  async function saveIfNeeded() {
+    if (!hasChanges) {
+      onStopEditing()
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      await onSave({
+        ...content,
+        title: title.trim(),
+        text: text.trim(),
+        linkUrl: linkUrl.trim(),
+        linkLabel: linkLabel.trim(),
+      })
+    } finally {
+      setIsSaving(false)
+      onStopEditing()
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div
+        ref={wrapperRef}
+        className="flex min-h-full flex-col gap-2"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onBlurCapture={(e) => {
+          const nextTarget = e.relatedTarget as Node | null
+
+          if (nextTarget && wrapperRef.current?.contains(nextTarget)) {
+            return
+          }
+
+          void saveIfNeeded()
+        }}
+      >
+        <input
+          ref={titleInputRef}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Project title"
+          className="bg-transparent text-base font-medium text-gray-900 outline-none"
+        />
+
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Project summary"
+          className="min-h-[120px] flex-1 resize-none bg-transparent text-sm leading-6 text-gray-700 outline-none"
+        />
+
+        <input
+          value={linkUrl}
+          onChange={(e) => setLinkUrl(e.target.value)}
+          placeholder="https://github.com/..."
+          className="bg-transparent text-sm text-gray-700 outline-none"
+        />
+
+        <input
+          value={linkLabel}
+          onChange={(e) => setLinkLabel(e.target.value)}
+          placeholder="Repository"
+          className="bg-transparent text-sm text-gray-500 outline-none"
+        />
+
+        <div className="text-[11px] text-gray-400">
+          {isSaving ? "Saving..." : "Click away to save"}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onStartEditing()
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      className="block h-full w-full text-left"
+    >
+      {content.title ? (
+        <p className="text-base font-medium text-gray-900">{content.title}</p>
+      ) : (
+        <p className="text-base font-medium text-gray-400">Untitled project</p>
+      )}
+
+      {content.text ? (
+        <p className="mt-2 line-clamp-5 text-sm leading-6 text-gray-700">
+          {content.text}
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-gray-400">Click to add a project summary.</p>
+      )}
+
+      {content.linkUrl && (
+        <a
+          href={content.linkUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-block text-sm text-blue-600 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {content.linkLabel || "Open project link"}
+        </a>
+      )}
+    </button>
+  )
+}
+
 function renderBlockView(type: BlockType, content: BlockContent) {
   if (type === "skills") {
     return (
@@ -570,6 +836,7 @@ export default function CanvasBlock({
   isDragging,
   isResizing,
   isEditing,
+  suppressHoverChrome,
   onDelete,
   onSelect,
   onStartEditing,
@@ -622,6 +889,29 @@ export default function CanvasBlock({
         />
       )
     }
+    if (type === "skills") {
+      return (
+        <SkillsBlockContent
+          content={content}
+          isEditing={isEditing}
+          onStartEditing={() => onStartEditing(id)}
+          onStopEditing={onStopEditing}
+          onSave={(nextContent) => onSaveContent(id, nextContent)}
+        />
+      )
+    }
+
+    if (type === "project") {
+      return (
+        <ProjectBlockContent
+          content={content}
+          isEditing={isEditing}
+          onStartEditing={() => onStartEditing(id)}
+          onStopEditing={onStopEditing}
+          onSave={(nextContent) => onSaveContent(id, nextContent)}
+        />
+      )
+    }
 
     return renderBlockView(type, content)
   }
@@ -638,11 +928,11 @@ export default function CanvasBlock({
         e.stopPropagation()
         onSelect(id)
       }}
-      className={`group relative rounded-[28px] p-4 transition-all duration-200 ${blockBase} ${
-        isDragging || isResizing ? "shadow-[0_18px_50px_rgba(0,0,0,0.10)]" : ""
-      } ${isDragging ? "opacity-85" : ""} ${isResizing ? "opacity-90" : ""} ${
-        isSelected ? "ring-2 ring-black/80" : "hover:scale-[1.01]"
-      } ${isEditing ? "z-30 overflow-visible" : "overflow-hidden"}`}
+      className={`group relative p-3 transition-all duration-200 ${blockBase} ${
+        isDragging || isResizing ? "z-30 opacity-90" : ""
+      } ${isSelected ? "rounded-[20px] bg-white/40" : ""} ${
+        !isSelected && !suppressHoverChrome ? "hover:scale-[1.01]" : ""
+      } ${isEditing ? "z-30 overflow-visible rounded-[20px] bg-white/70 backdrop-blur-sm" : "overflow-hidden"}`}
     >
       <div
         onMouseDown={(e) => {
@@ -651,7 +941,7 @@ export default function CanvasBlock({
             onDragStart(id, e)
           }
         }}
-        className={`-mx-4 -mt-4 mb-2 flex h-6 items-start justify-end px-4 pt-2 ${
+        className={`mb-2 h-5 ${
           isEditing ? "cursor-default" : isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
       />
@@ -667,8 +957,12 @@ export default function CanvasBlock({
           onDelete(id)
         }}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`absolute right-3 top-3 z-10 h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
-          isEditing ? "hidden" : isSelected ? "flex" : "hidden group-hover:flex"
+        className={`absolute right-2 top-2 z-10 h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
+          isEditing || suppressHoverChrome
+            ? "hidden"
+            : isSelected
+              ? "flex"
+              : "hidden group-hover:flex"
         }`}
         aria-label="Delete block"
       >
@@ -684,7 +978,7 @@ export default function CanvasBlock({
           onResizeStart(id, e)
         }}
         className={`absolute bottom-2 right-2 h-5 w-5 rounded-full bg-white/90 text-gray-400 shadow-sm transition ${
-          isEditing
+          isEditing || suppressHoverChrome
             ? "pointer-events-none opacity-0"
             : isSelected
               ? "opacity-100"

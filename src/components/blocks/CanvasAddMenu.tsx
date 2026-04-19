@@ -14,7 +14,6 @@ const BLOCK_TYPES: BlockType[] = [
   "project",
   "skills",
   "image",
-  "education",
   "link",
 ]
 
