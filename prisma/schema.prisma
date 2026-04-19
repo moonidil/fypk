@@ -8,17 +8,17 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  email              String              @unique
-  passwordHash       String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
-  profile            Profile?
-  projects           Project[]
-  canvasBlocks       CanvasBlock[]
+  profile             Profile?
+  projects            Project[]
+  canvasBlocks        CanvasBlock[]
   platformConnections PlatformConnection[]
-  feedbackReceived   Feedback[]          @relation("FeedbackReceiver")
+  feedbackReceived    Feedback[]           @relation("FeedbackReceiver")
 }
 
 model Profile {
@@ -28,6 +28,9 @@ model Profile {
   bio         String?
   slug        String   @unique
   isPublic    Boolean  @default(false)
+  heroX       Int      @default(1)
+  heroY       Int      @default(1)
+  heroWidth   Int      @default(3)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -35,19 +38,19 @@ model Profile {
 }
 
 model Project {
-  id          String    @id @default(cuid())
-  userId      String
-  title       String
-  description String?
-  status      String    @default("draft")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String         @id @default(cuid())
+  userId       String
+  title        String
+  description  String?
+  status       String         @default("draft")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  artefacts   Artefact[]
-  tags        ProjectTag[]
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artefacts    Artefact[]
+  tags         ProjectTag[]
   canvasBlocks CanvasBlock[]
-  timeline    TimelineEntry[]
+  timeline     TimelineEntry[]
 }
 
 model Artefact {

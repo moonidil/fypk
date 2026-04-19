@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import CanvasBlock from "./CanvasBlock"
 import CanvasAddMenu from "./CanvasAddMenu"
@@ -13,6 +14,19 @@ type Block = {
   width: number
   height: number
   content: BlockContent
+}
+
+type HeroLayer = {
+  displayName: string
+  slug: string
+  bio: string | null
+  x: number
+  y: number
+  width: number
+}
+
+type Props = {
+  hero: HeroLayer
 }
 
 type DragState = {
@@ -34,16 +48,17 @@ type Cell = {
   y: number
 }
 
-const CELL_SIZE = 96
-const GAP = 8
-const GRID_COLS = 8
-const GRID_ROWS = 6
+const CELL_SIZE = 80
+const GAP = 6
+const GRID_COLS = 12
+const GRID_ROWS = 12
 const MIN_BLOCK_WIDTH = 1
 const MIN_BLOCK_HEIGHT = 1
-const MAX_BLOCK_WIDTH = 4
-const MAX_BLOCK_HEIGHT = 4
+const MAX_BLOCK_WIDTH = 5
+const MAX_BLOCK_HEIGHT = 5
+const LEFT_RAIL_WIDTH = 92
+const SURFACE_PADDING = 24
 
-//checks whether two block rectangles overlap.
 function rectanglesOverlap(
   a: { x: number; y: number; width: number; height: number },
   b: { x: number; y: number; width: number; height: number }
@@ -56,7 +71,7 @@ function rectanglesOverlap(
   )
 }
 
-export default function CanvasGrid() {
+export default function CanvasGrid({ hero }: Props) {
   const [blocks, setBlocks] = useState<Block[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -78,7 +93,15 @@ export default function CanvasGrid() {
 
   const gridRef = useRef<HTMLDivElement | null>(null)
 
-  //loads existing blocks on mount.
+  const heroRect = useMemo(() => {
+    return {
+      x: hero.x,
+      y: hero.y,
+      width: hero.width,
+      height: 2,
+    }
+  }, [hero.width, hero.x, hero.y])
+
   useEffect(() => {
     async function loadBlocks() {
       try {
@@ -119,21 +142,6 @@ export default function CanvasGrid() {
     })
   }, [blocks, dragPreview, dragState, resizePreview, resizeState])
 
-  const occupiedCells = useMemo(() => {
-    const taken = new Set<string>()
-
-    for (const block of displayedBlocks) {
-      for (let row = block.y; row < block.y + block.height; row += 1) {
-        for (let col = block.x; col < block.x + block.width; col += 1) {
-          taken.add(`${col}-${row}`)
-        }
-      }
-    }
-
-    return taken
-  }, [displayedBlocks])
-
-  //checks whether a block can fit at a given position without overlapping.
   function canPlaceBlockAt(
     x: number,
     y: number,
@@ -147,6 +155,10 @@ export default function CanvasGrid() {
 
     const candidate = { x, y, width, height }
 
+    if (rectanglesOverlap(candidate, heroRect)) {
+      return false
+    }
+
     return !blocks.some((block) => {
       if (block.id === ignoreBlockId) return false
 
@@ -159,7 +171,6 @@ export default function CanvasGrid() {
     })
   }
 
-  //finds a block that occupies the given grid cell.
   function getBlockAtCell(x: number, y: number): Block | null {
     return (
       blocks.find((block) =>
@@ -173,6 +184,13 @@ export default function CanvasGrid() {
           }
         )
       ) || null
+    )
+  }
+
+  function isHeroAtCell(x: number, y: number) {
+    return rectanglesOverlap(
+      { x, y, width: 1, height: 1 },
+      heroRect
     )
   }
 
@@ -190,7 +208,6 @@ export default function CanvasGrid() {
     }
   }
 
-  //snaps a dragged block back onto the grid based on its top-left.
   function getSnappedBlockPosition(
     clientX: number,
     clientY: number,
@@ -210,7 +227,6 @@ export default function CanvasGrid() {
     }
   }
 
-  //converts mouse position into a snapped size from the block origin.
   function getSnappedBlockSize(
     block: Block,
     clientX: number,
@@ -233,6 +249,7 @@ export default function CanvasGrid() {
       MIN_BLOCK_WIDTH,
       Math.min(MAX_BLOCK_WIDTH, rawWidth)
     )
+
     const height = Math.max(
       MIN_BLOCK_HEIGHT,
       Math.min(MAX_BLOCK_HEIGHT, rawHeight)
@@ -246,10 +263,10 @@ export default function CanvasGrid() {
   }
 
   function getMenuPositionForCell(x: number, y: number) {
-    const baseLeft = x * (CELL_SIZE + GAP) + CELL_SIZE / 2 + 14
-    const baseTop = y * (CELL_SIZE + GAP) + CELL_SIZE / 2 + 14
-    const menuWidth = 220
-    const menuHeight = 320
+    const baseLeft = x * (CELL_SIZE + GAP) + 24
+    const baseTop = y * (CELL_SIZE + GAP) + 24
+    const menuWidth = 224
+    const menuHeight = 300
     const gridWidth = GRID_COLS * (CELL_SIZE + GAP) - GAP
     const gridHeight = GRID_ROWS * (CELL_SIZE + GAP) - GAP
 
@@ -262,6 +279,7 @@ export default function CanvasGrid() {
   function openMenuAtCell(x: number, y: number) {
     if (!isInsideGrid(x, y)) return
     if (getBlockAtCell(x, y)) return
+    if (isHeroAtCell(x, y)) return
     if (dragState || resizeState || editingBlockId) return
 
     setSelectedBlockId(null)
@@ -269,22 +287,21 @@ export default function CanvasGrid() {
     setMenuPixelPosition(getMenuPositionForCell(x, y))
   }
 
-  //creates starter content based on the selected block type.
   function getDefaultContent(type: BlockType): BlockContent {
     if (type === "text") {
-      return { title: "Text block", text: "Add some text here." }
+      return { title: "Text", text: "Add some text here." }
     }
 
     if (type === "image") {
       return {
-        title: "Image block",
+        title: "Image",
         imageUrl: "https://placehold.co/600x400?text=Image",
       }
     }
 
     if (type === "link") {
       return {
-        title: "Link block",
+        title: "Link",
         linkUrl: "https://example.com",
         linkLabel: "Visit link",
       }
@@ -292,35 +309,50 @@ export default function CanvasGrid() {
 
     if (type === "skills") {
       return {
-        title: "Skills block",
+        title: "Skills",
         skills: ["React", "TypeScript"],
       }
     }
 
     if (type === "project") {
       return {
-        title: "Project block",
+        title: "Project",
         text: "Project summary goes here.",
+        linkUrl: "https://github.com/",
+        linkLabel: "Repository",
       }
     }
 
     return {
-      title: "Education block",
+      title: "Education",
       text: "Education details go here.",
     }
   }
 
-  //blank canvas clicks should only clear selection and menus.
-  function handleCanvasClick() {
+  function handleSurfaceClick(e: React.MouseEvent<HTMLDivElement>) {
     if (dragState || resizeState) return
 
-    setSelectedBlockId(null)
-    setMenuCell(null)
-    setMenuPixelPosition(null)
+    const position = getGridPositionFromMouse(e.clientX, e.clientY)
+
+    if (!position) {
+      setSelectedBlockId(null)
+      setMenuCell(null)
+      setMenuPixelPosition(null)
+      return
+    }
+
+    const clickedBlock = getBlockAtCell(position.x, position.y)
+
+    if (clickedBlock || isHeroAtCell(position.x, position.y)) {
+      setMenuCell(null)
+      setMenuPixelPosition(null)
+      return
+    }
+
+    openMenuAtCell(position.x, position.y)
   }
 
-  //right click still works as a shortcut for empty cells.
-  function handleCanvasContextMenu(e: React.MouseEvent<HTMLDivElement>) {
+  function handleSurfaceContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault()
 
     if (dragState || resizeState || editingBlockId) return
@@ -337,10 +369,15 @@ export default function CanvasGrid() {
       return
     }
 
+    if (isHeroAtCell(position.x, position.y)) {
+      setMenuCell(null)
+      setMenuPixelPosition(null)
+      return
+    }
+
     openMenuAtCell(position.x, position.y)
   }
 
-  //creates a new block at the selected empty grid cell.
   async function handleAddBlock(type: BlockType) {
     if (!menuCell) return
 
@@ -388,33 +425,24 @@ export default function CanvasGrid() {
         body: JSON.stringify({ id }),
       })
 
-      const data = await res.json().catch(() => null)
-
       if (!res.ok) {
+        const data = await res.json().catch(() => null)
         setError(data?.error || "Failed to delete block")
         return
       }
 
       setBlocks((prev) => prev.filter((block) => block.id !== id))
-
-      if (selectedBlockId === id) {
-        setSelectedBlockId(null)
-      }
-
-      if (editingBlockId === id) {
-        setEditingBlockId(null)
-      }
+      setSelectedBlockId((current) => (current === id ? null : current))
+      setEditingBlockId((current) => (current === id ? null : current))
     } catch {
       setError("Failed to delete block")
     }
   }
 
   async function handleSaveContent(id: string, content: BlockContent) {
-    const existingBlock = blocks.find((block) => block.id === id)
-    if (!existingBlock) return
-
     setError("")
 
+    const previousBlocks = blocks
     setBlocks((prev) =>
       prev.map((block) => (block.id === id ? { ...block, content } : block))
     )
@@ -423,81 +451,50 @@ export default function CanvasGrid() {
       const res = await fetch("/api/canvas", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id,
-          content,
-        }),
+        body: JSON.stringify({ id, content }),
       })
 
-      const data = await res.json().catch(() => null)
-
       if (!res.ok) {
-        setBlocks((prev) =>
-          prev.map((block) =>
-            block.id === id ? { ...block, content: existingBlock.content } : block
-          )
-        )
-        setError(data?.error || "Failed to save block content")
+        const data = await res.json().catch(() => null)
+        setBlocks(previousBlocks)
+        setError(data?.error || "Failed to save block")
       }
     } catch {
-      setBlocks((prev) =>
-        prev.map((block) =>
-          block.id === id ? { ...block, content: existingBlock.content } : block
-        )
-      )
-      setError("Failed to save block content")
+      setBlocks(previousBlocks)
+      setError("Failed to save block")
     }
   }
 
-  //starts dragging a block and stores the initial mouse offset from the block origin.
   function handleDragStart(id: string, e: React.MouseEvent<HTMLDivElement>) {
-    if (e.button !== 0) return
-    if (resizeState) return
     if (editingBlockId) return
 
     const block = blocks.find((item) => item.id === id)
-    if (!block || !gridRef.current) return
+    const grid = gridRef.current
 
-    const gridRect = gridRef.current.getBoundingClientRect()
+    if (!block || !grid) return
+
+    const rect = grid.getBoundingClientRect()
     const blockLeft = block.x * (CELL_SIZE + GAP)
     const blockTop = block.y * (CELL_SIZE + GAP)
 
-    setSelectedBlockId(id)
-    setEditingBlockId(null)
-    setMenuCell(null)
-    setMenuPixelPosition(null)
-    setHoveredAnchor(null)
-    setError("")
-
     setDragState({
       id,
-      offsetX: e.clientX - (gridRect.left + blockLeft),
-      offsetY: e.clientY - (gridRect.top + blockTop),
+      offsetX: e.clientX - rect.left - blockLeft,
+      offsetY: e.clientY - rect.top - blockTop,
       originalX: block.x,
       originalY: block.y,
     })
 
-    setDragPreview({ x: block.x, y: block.y })
+    setSelectedBlockId(id)
+    setMenuCell(null)
+    setMenuPixelPosition(null)
   }
 
-  //starts resizing from the bottom-right handle.
-  function handleResizeStart(
-    id: string,
-    e: React.MouseEvent<HTMLButtonElement>
-  ) {
-    if (e.button !== 0) return
-    if (dragState) return
+  function handleResizeStart(id: string, e: React.MouseEvent<HTMLButtonElement>) {
     if (editingBlockId) return
 
     const block = blocks.find((item) => item.id === id)
     if (!block) return
-
-    setSelectedBlockId(id)
-    setEditingBlockId(null)
-    setMenuCell(null)
-    setMenuPixelPosition(null)
-    setHoveredAnchor(null)
-    setError("")
 
     setResizeState({
       id,
@@ -505,207 +502,173 @@ export default function CanvasGrid() {
       originalHeight: block.height,
     })
 
-    setResizePreview({
-      width: block.width,
-      height: block.height,
-    })
+    setSelectedBlockId(id)
+    setMenuCell(null)
+    setMenuPixelPosition(null)
   }
 
-  //moves the drag preview as the mouse moves and saves on mouse up.
   useEffect(() => {
-    if (!dragState) return
-    const activeDrag = dragState
-
     function handleMouseMove(e: MouseEvent) {
-      const block = blocks.find((item) => item.id === activeDrag.id)
-      if (!block) return
-
-      const snappedPosition = getSnappedBlockPosition(
-        e.clientX,
-        e.clientY,
-        activeDrag.offsetX,
-        activeDrag.offsetY
-      )
-
-      if (!snappedPosition) return
-
-      if (
-        canPlaceBlockAt(
-          snappedPosition.x,
-          snappedPosition.y,
-          block.width,
-          block.height,
-          block.id
+      if (dragState) {
+        const nextPosition = getSnappedBlockPosition(
+          e.clientX,
+          e.clientY,
+          dragState.offsetX,
+          dragState.offsetY
         )
-      ) {
-        setDragPreview(snappedPosition)
+
+        if (!nextPosition) return
+
+        if (
+          canPlaceBlockAt(nextPosition.x, nextPosition.y, 1, 1, dragState.id) ||
+          canPlaceBlockAt(
+            nextPosition.x,
+            nextPosition.y,
+            blocks.find((b) => b.id === dragState.id)?.width ?? 1,
+            blocks.find((b) => b.id === dragState.id)?.height ?? 1,
+            dragState.id
+          )
+        ) {
+          setDragPreview(nextPosition)
+        }
+
+        return
       }
+
+      if (resizeState) {
+        const block = blocks.find((item) => item.id === resizeState.id)
+        if (!block) return
+
+        const nextSize = getSnappedBlockSize(block, e.clientX, e.clientY)
+        if (!nextSize) return
+
+        if (
+          canPlaceBlockAt(
+            block.x,
+            block.y,
+            nextSize.width,
+            nextSize.height,
+            block.id
+          )
+        ) {
+          setResizePreview(nextSize)
+        }
+
+        return
+      }
+
+      const position = getGridPositionFromMouse(e.clientX, e.clientY)
+      if (!position || !isInsideGrid(position.x, position.y)) {
+        setHoveredAnchor(null)
+        return
+      }
+
+      if (getBlockAtCell(position.x, position.y) || isHeroAtCell(position.x, position.y)) {
+        setHoveredAnchor(null)
+        return
+      }
+
+      setHoveredAnchor(position)
     }
 
     async function handleMouseUp() {
-      const block = blocks.find((item) => item.id === activeDrag.id)
-      if (!block) {
+      if (dragState) {
+        const block = blocks.find((item) => item.id === dragState.id)
+
+        if (block && dragPreview) {
+          const nextX = dragPreview.x
+          const nextY = dragPreview.y
+
+          if (
+            (nextX !== dragState.originalX || nextY !== dragState.originalY) &&
+            canPlaceBlockAt(nextX, nextY, block.width, block.height, block.id)
+          ) {
+            const previousBlocks = blocks
+
+            setBlocks((prev) =>
+              prev.map((item) =>
+                item.id === block.id ? { ...item, x: nextX, y: nextY } : item
+              )
+            )
+
+            try {
+              const res = await fetch("/api/canvas", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: block.id,
+                  x: nextX,
+                  y: nextY,
+                }),
+              })
+
+              if (!res.ok) {
+                setBlocks(previousBlocks)
+                setError("Failed to move block")
+              }
+            } catch {
+              setBlocks(previousBlocks)
+              setError("Failed to move block")
+            }
+          }
+        }
+
         setDragState(null)
         setDragPreview(null)
-        return
       }
 
-      const originalX = activeDrag.originalX
-      const originalY = activeDrag.originalY
-      const nextX = dragPreview?.x ?? originalX
-      const nextY = dragPreview?.y ?? originalY
-      const moved = nextX !== originalX || nextY !== originalY
+      if (resizeState) {
+        const block = blocks.find((item) => item.id === resizeState.id)
 
-      setDragState(null)
-      setDragPreview(null)
+        if (block && resizePreview) {
+          const nextWidth = resizePreview.width
+          const nextHeight = resizePreview.height
 
-      if (!moved) return
-
-      setBlocks((prev) =>
-        prev.map((item) =>
-          item.id === block.id ? { ...item, x: nextX, y: nextY } : item
-        )
-      )
-
-      try {
-        const res = await fetch("/api/canvas", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: block.id,
-            x: nextX,
-            y: nextY,
-          }),
-        })
-
-        const data = await res.json().catch(() => null)
-
-        if (!res.ok) {
-          setBlocks((prev) =>
-            prev.map((item) =>
-              item.id === block.id
-                ? { ...item, x: originalX, y: originalY }
-                : item
+          if (
+            (nextWidth !== resizeState.originalWidth ||
+              nextHeight !== resizeState.originalHeight) &&
+            canPlaceBlockAt(
+              block.x,
+              block.y,
+              nextWidth,
+              nextHeight,
+              block.id
             )
-          )
-          setError(data?.error || "Failed to save block position")
+          ) {
+            const previousBlocks = blocks
+
+            setBlocks((prev) =>
+              prev.map((item) =>
+                item.id === block.id
+                  ? { ...item, width: nextWidth, height: nextHeight }
+                  : item
+              )
+            )
+
+            try {
+              const res = await fetch("/api/canvas", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: block.id,
+                  width: nextWidth,
+                  height: nextHeight,
+                }),
+              })
+
+              if (!res.ok) {
+                setBlocks(previousBlocks)
+                setError("Failed to resize block")
+              }
+            } catch {
+              setBlocks(previousBlocks)
+              setError("Failed to resize block")
+            }
+          }
         }
-      } catch {
-        setBlocks((prev) =>
-          prev.map((item) =>
-            item.id === block.id
-              ? { ...item, x: originalX, y: originalY }
-              : item
-          )
-        )
-        setError("Failed to save block position")
-      }
-    }
 
-    window.addEventListener("mousemove", handleMouseMove)
-    window.addEventListener("mouseup", handleMouseUp)
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove)
-      window.removeEventListener("mouseup", handleMouseUp)
-    }
-  }, [blocks, dragPreview, dragState])
-
-  //moves the resize preview as the mouse moves and saves on mouse up.
-  useEffect(() => {
-    if (!resizeState) return
-    const activeResize = resizeState
-
-    function handleMouseMove(e: MouseEvent) {
-      const block = blocks.find((item) => item.id === activeResize.id)
-      if (!block) return
-
-      const snappedSize = getSnappedBlockSize(block, e.clientX, e.clientY)
-      if (!snappedSize) return
-
-      if (
-        canPlaceBlockAt(
-          block.x,
-          block.y,
-          snappedSize.width,
-          snappedSize.height,
-          block.id
-        )
-      ) {
-        setResizePreview(snappedSize)
-      }
-    }
-
-    async function handleMouseUp() {
-      const block = blocks.find((item) => item.id === activeResize.id)
-      if (!block) {
         setResizeState(null)
         setResizePreview(null)
-        return
-      }
-
-      const originalWidth = activeResize.originalWidth
-      const originalHeight = activeResize.originalHeight
-      const nextWidth = resizePreview?.width ?? originalWidth
-      const nextHeight = resizePreview?.height ?? originalHeight
-      const changed =
-        nextWidth !== originalWidth || nextHeight !== originalHeight
-
-      setResizeState(null)
-      setResizePreview(null)
-
-      if (!changed) {
-        return
-      }
-
-      setBlocks((prev) =>
-        prev.map((item) =>
-          item.id === block.id
-            ? { ...item, width: nextWidth, height: nextHeight }
-            : item
-        )
-      )
-
-      try {
-        const res = await fetch("/api/canvas", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: block.id,
-            width: nextWidth,
-            height: nextHeight,
-          }),
-        })
-
-        const data = await res.json().catch(() => null)
-
-        if (!res.ok) {
-          setBlocks((prev) =>
-            prev.map((item) =>
-              item.id === block.id
-                ? {
-                    ...item,
-                    width: originalWidth,
-                    height: originalHeight,
-                  }
-                : item
-            )
-          )
-          setError(data?.error || "Failed to save block size")
-        }
-      } catch {
-        setBlocks((prev) =>
-          prev.map((item) =>
-            item.id === block.id
-              ? {
-                  ...item,
-                  width: originalWidth,
-                  height: originalHeight,
-                }
-              : item
-          )
-        )
-        setError("Failed to save block size")
       }
     }
 
@@ -716,147 +679,145 @@ export default function CanvasGrid() {
       window.removeEventListener("mousemove", handleMouseMove)
       window.removeEventListener("mouseup", handleMouseUp)
     }
-  }, [blocks, resizePreview, resizeState])
+  }, [blocks, dragPreview, dragState, heroRect, resizePreview, resizeState])
 
-  const gridWidth = GRID_COLS * (CELL_SIZE + GAP) - GAP
-  const gridHeight = GRID_ROWS * (CELL_SIZE + GAP) - GAP
+  const gridWidth = GRID_COLS * CELL_SIZE + (GRID_COLS - 1) * GAP
+  const gridHeight = GRID_ROWS * CELL_SIZE + (GRID_ROWS - 1) * GAP
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center text-sm text-gray-400">
-        Loading canvas...
+      <div className="flex min-h-[calc(100vh-7rem)] items-center justify-center rounded-[32px] bg-white/70">
+        <p className="text-sm text-gray-500">Loading canvas...</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="relative min-h-[calc(100vh-7rem)] overflow-auto rounded-[32px] bg-white/65 shadow-[0_20px_80px_rgba(0,0,0,0.06)] backdrop-blur-sm">
+      <div className="absolute inset-y-0 left-0 w-[92px] bg-white/45 backdrop-blur-sm" />
 
-      {error && <p className="text-center text-sm text-red-500">{error}</p>}
+      <div className="absolute left-0 top-0 z-10 flex w-[92px] flex-col items-center gap-3 p-4">
+        <div className="text-[10px] uppercase tracking-[0.24em] text-gray-400">
+          Koda
+        </div>
+        <div className="h-10 w-10 rounded-full bg-black/90" />
+        <div className="h-2 w-2 rounded-full bg-gray-300" />
+        <div className="h-2 w-2 rounded-full bg-gray-300" />
+        <div className="h-2 w-2 rounded-full bg-gray-300" />
+      </div>
 
-      <div className="flex justify-center">
-        <div
-          ref={gridRef}
-          onClick={handleCanvasClick}
-          onContextMenu={handleCanvasContextMenu}
-          onMouseLeave={() => {
-            if (!dragState && !resizeState) {
-              setHoveredAnchor(null)
-            }
-          }}
-          className="relative select-none"
-          style={{ width: gridWidth, height: gridHeight }}
-        >
-          {Array.from({ length: GRID_ROWS }).map((_, row) =>
-            Array.from({ length: GRID_COLS }).map((_, col) => {
-              const cellKey = `${col}-${row}`
-              const isOccupied = occupiedCells.has(cellKey)
-
-              if (isOccupied) return null
-
-              const isHovered =
-                hoveredAnchor?.x === col && hoveredAnchor?.y === row
-
-              return (
-                <button
-                  key={cellKey}
-                  type="button"
-                  aria-label={`Add block at column ${col + 1}, row ${row + 1}`}
-                  onMouseEnter={() => {
-                    if (!dragState && !resizeState && !editingBlockId) {
-                      setHoveredAnchor({ x: col, y: row })
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    if (
-                      !dragState &&
-                      !resizeState &&
-                      !editingBlockId &&
-                      (menuCell?.x !== col || menuCell?.y !== row)
-                    ) {
-                      setHoveredAnchor(null)
-                    }
-                  }}
-                  onFocus={() => {
-                    if (!dragState && !resizeState && !editingBlockId) {
-                      setHoveredAnchor({ x: col, y: row })
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!dragState && !resizeState && !editingBlockId) {
-                      setHoveredAnchor(null)
-                    }
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openMenuAtCell(col, row)
-                  }}
-                  className={`absolute z-10 flex items-center justify-center rounded-full transition-all duration-150 ${
-                    dragState || resizeState || editingBlockId
-                      ? "pointer-events-none opacity-0"
-                      : isHovered
-                        ? "cursor-pointer bg-gray-100/80"
-                        : "cursor-pointer bg-transparent"
-                  }`}
-                  style={{
-                    left: col * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 22,
-                    top: row * (CELL_SIZE + GAP) + CELL_SIZE / 2 - 22,
-                    width: 44,
-                    height: 44,
-                  }}
-                >
-                  <span
-                    className={`select-none leading-none transition-all duration-150 ${
-                      isHovered
-                        ? "scale-100 text-[16px] text-gray-500"
-                        : "scale-100 text-[10px] text-gray-300"
-                    }`}
-                  >
-                    {isHovered ? "+" : "•"}
-                  </span>
-                </button>
-              )
-            })
-          )}
-
-          {displayedBlocks.map((block) => (
-            <CanvasBlock
-              key={block.id}
-              {...block}
-              isSelected={selectedBlockId === block.id}
-              isDragging={dragState?.id === block.id}
-              isResizing={resizeState?.id === block.id}
-              isEditing={editingBlockId === block.id}
-              onDelete={handleDeleteBlock}
-              onSelect={setSelectedBlockId}
-              onStartEditing={setEditingBlockId}
-              onStopEditing={() => setEditingBlockId(null)}
-              onSaveContent={handleSaveContent}
-              onDragStart={handleDragStart}
-              onResizeStart={handleResizeStart}
-            />
-          ))}
-
-          {blocks.length === 0 && !menuCell && (
-            <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2">
-              <p className="text-center text-sm text-gray-500">
-                Hover a plus to add a block. Drag from the block header to move
-                it. Use the bottom-right handle to resize it. Text, link, and
-                image blocks can be edited inline and scrolled while editing.
-              </p>
-            </div>
-          )}
-
-          {menuCell && menuPixelPosition && (
-            <CanvasAddMenu
-              x={menuPixelPosition.left}
-              y={menuPixelPosition.top}
-              onSelect={handleAddBlock}
-              onClose={() => {
-                setMenuCell(null)
-                setMenuPixelPosition(null)
+      <div className="pl-[92px]">
+        <div className="p-6">
+          <div
+            ref={gridRef}
+            className="relative rounded-[28px]"
+            style={{
+              width: gridWidth,
+              height: gridHeight,
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, rgba(15,23,42,0.08) 1px, transparent 0)",
+              backgroundSize: `${CELL_SIZE + GAP}px ${CELL_SIZE + GAP}px`,
+              backgroundPosition: "0 0",
+            }}
+            onClick={handleSurfaceClick}
+            onContextMenu={handleSurfaceContextMenu}
+          >
+            <div
+              className="absolute rounded-[28px] bg-transparent px-1 py-1 transition-transform duration-300 hover:scale-[1.01]"
+              style={{
+                left: hero.x * (CELL_SIZE + GAP),
+                top: hero.y * (CELL_SIZE + GAP),
+                width: hero.width * CELL_SIZE + (hero.width - 1) * GAP,
               }}
-            />
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-[clamp(2rem,5vw,4rem)] font-semibold tracking-[-0.05em] text-gray-950">
+                {hero.displayName}
+              </p>
+
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                <span>koda.app/{hero.slug}</span>
+                <Link
+                  href="/profile/edit"
+                  className="rounded-full bg-white px-3 py-1.5 text-xs text-gray-700 shadow-sm transition hover:bg-gray-50"
+                >
+                  Edit identity
+                </Link>
+              </div>
+
+              {hero.bio && (
+                <p className="mt-4 max-w-xl text-sm leading-7 text-gray-600">
+                  {hero.bio}
+                </p>
+              )}
+            </div>
+
+            {hoveredAnchor && !menuCell && !selectedBlockId && (
+              <div
+                className="pointer-events-none absolute rounded-full bg-black/5"
+                style={{
+                  left: hoveredAnchor.x * (CELL_SIZE + GAP) + 24,
+                  top: hoveredAnchor.y * (CELL_SIZE + GAP) + 24,
+                  width: 32,
+                  height: 32,
+                }}
+              />
+            )}
+
+            {displayedBlocks.map((block) => (
+              <CanvasBlock
+                key={block.id}
+                id={block.id}
+                type={block.type}
+                x={block.x}
+                y={block.y}
+                width={block.width}
+                height={block.height}
+                content={block.content}
+                isSelected={selectedBlockId === block.id}
+                isDragging={dragState?.id === block.id}
+                isResizing={resizeState?.id === block.id}
+                isEditing={editingBlockId === block.id}
+                onDelete={handleDeleteBlock}
+                onSelect={(id) => {
+                  setSelectedBlockId(id)
+                  setMenuCell(null)
+                  setMenuPixelPosition(null)
+                }}
+                onStartEditing={(id) => {
+                  setSelectedBlockId(id)
+                  setEditingBlockId(id)
+                  setMenuCell(null)
+                  setMenuPixelPosition(null)
+                }}
+                onStopEditing={() => setEditingBlockId(null)}
+                onSaveContent={handleSaveContent}
+                onDragStart={handleDragStart}
+                onResizeStart={handleResizeStart}
+              />
+            ))}
+
+            {menuPixelPosition && menuCell && (
+              <CanvasAddMenu
+                x={menuPixelPosition.left}
+                y={menuPixelPosition.top}
+                onSelect={handleAddBlock}
+                onClose={() => {
+                  setMenuCell(null)
+                  setMenuPixelPosition(null)
+                }}
+              />
+            )}
+
+            {blocks.length === 0 && !error && (
+              <div className="absolute bottom-4 right-4 max-w-sm rounded-[24px] bg-white/80 px-4 py-3 text-sm text-gray-500 shadow-sm backdrop-blur-sm">
+                Click empty space to place something on the canvas.
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <p className="mt-4 text-sm text-red-500">{error}</p>
           )}
         </div>
       </div>

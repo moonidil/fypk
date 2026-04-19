@@ -20,6 +20,9 @@ export async function GET() {
       displayName: true,
       bio: true,
       slug: true,
+      heroX: true,
+      heroY: true,
+      heroWidth: true,
     },
   })
 
@@ -41,10 +44,13 @@ export async function PATCH(req: Request) {
   try {
     const body = await req.json()
 
-    const displayName = typeof body.displayName === "string" ? body.displayName.trim() : ""
-    const bio =
-      typeof body.bio === "string" ? body.bio.trim() : ""
-    const slug = typeof body.slug === "string" ? body.slug.trim().toLowerCase() : ""
+    const displayName =
+      typeof body.displayName === "string" ? body.displayName.trim() : ""
+
+    const bio = typeof body.bio === "string" ? body.bio.trim() : ""
+
+    const slug =
+      typeof body.slug === "string" ? body.slug.trim().toLowerCase() : ""
 
     if (!displayName) {
       return NextResponse.json(
@@ -60,9 +66,19 @@ export async function PATCH(req: Request) {
       )
     }
 
+    if (slug.length < 3 || slug.length > 30) {
+      return NextResponse.json(
+        { error: "Public link must be between 3 and 30 characters" },
+        { status: 400 }
+      )
+    }
+
     if (!isValidSlug(slug)) {
       return NextResponse.json(
-        { error: "Public link can only contain lowercase letters, numbers, and hyphens" },
+        {
+          error:
+            "Public link can only contain lowercase letters, numbers, and hyphens",
+        },
         { status: 400 }
       )
     }
@@ -95,6 +111,9 @@ export async function PATCH(req: Request) {
         displayName: true,
         bio: true,
         slug: true,
+        heroX: true,
+        heroY: true,
+        heroWidth: true,
       },
     })
 

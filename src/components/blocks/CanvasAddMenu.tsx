@@ -22,15 +22,12 @@ const BLOCK_TYPES: BlockType[] = [
 export default function CanvasAddMenu({ x, y, onSelect, onClose }: Props) {
   return (
     <div
-      className="absolute z-30 w-56 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-[0_12px_40px_rgba(0,0,0,0.08)] backdrop-blur-sm"
-      style={{
-        left: x,
-        top: y,
-      }}
+      className="absolute z-40 w-56 rounded-[24px] bg-white/95 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.12)] backdrop-blur-md"
+      style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="mb-1 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-gray-400">
+      <div className="mb-1 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-gray-400">
         Add block
       </div>
 
@@ -39,7 +36,7 @@ export default function CanvasAddMenu({ x, y, onSelect, onClose }: Props) {
           <button
             key={type}
             onClick={() => onSelect(type)}
-            className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm capitalize text-gray-700 transition hover:bg-gray-50"
+            className="flex w-full items-center rounded-2xl px-3 py-2.5 text-left text-sm capitalize text-gray-700 transition hover:bg-gray-50"
           >
             {type}
           </button>
@@ -48,7 +45,7 @@ export default function CanvasAddMenu({ x, y, onSelect, onClose }: Props) {
 
       <button
         onClick={onClose}
-        className="mt-2 w-full rounded-xl px-3 py-2 text-sm text-gray-500 transition hover:bg-gray-50"
+        className="mt-2 w-full rounded-2xl px-3 py-2 text-sm text-gray-500 transition hover:bg-gray-50"
       >
         Cancel
       </button>
