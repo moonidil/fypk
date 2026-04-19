@@ -607,14 +607,25 @@ export default function CanvasGrid({ hero }: Props) {
     <div className="relative min-h-[calc(100vh-7rem)] overflow-auto rounded-[32px] bg-white/65 shadow-[0_20px_80px_rgba(0,0,0,0.06)] backdrop-blur-sm">
       <div className="absolute inset-y-0 left-0 w-[92px] bg-white/45 backdrop-blur-sm" />
 
-      <div className="absolute left-0 top-0 z-10 flex w-[92px] flex-col items-center gap-3 p-4">
+      <div className="absolute left-0 top-0 z-10 flex w-[92px] flex-col items-center p-4">
         <div className="text-[10px] uppercase tracking-[0.24em] text-gray-400">
           Koda
         </div>
-        <div className="h-10 w-10 rounded-full bg-black/90" />
-        <div className="h-2 w-2 rounded-full bg-gray-300" />
-        <div className="h-2 w-2 rounded-full bg-gray-300" />
-        <div className="h-2 w-2 rounded-full bg-gray-300" />
+
+        <div className="mt-7 h-10 w-10 rounded-full bg-black/90" />
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setSelectedBlockId(null)
+            setMenuOpen((open) => !open)
+          }}
+          className="mt-7 flex h-11 w-11 items-center justify-center rounded-full bg-black text-2xl text-white shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:scale-[1.03] hover:opacity-95"
+          aria-label="Add block"
+        >
+          +
+        </button>
       </div>
 
       <div className="pl-[92px]">
@@ -696,25 +707,12 @@ export default function CanvasGrid({ hero }: Props) {
 
             {menuOpen && (
               <CanvasAddMenu
-                x={gridWidth - 248}
-                y={gridHeight - 290}
+                x={28}
+                y={124}
                 onSelect={handleAddBlock}
                 onClose={() => setMenuOpen(false)}
               />
             )}
-
-            <button
-              type="button"
-              onClick={(e) => {
-               e.stopPropagation()
-               setSelectedBlockId(null)
-               setMenuOpen((open) => !open)
-              }}
-               className="absolute bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-black text-3xl text-white shadow-[0_16px_40px_rgba(0,0,0,0.18)] transition hover:scale-[1.03] hover:opacity-95"
-               aria-label="Add block"
-            >
-              +
-            </button>
           </div>
 
           {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
