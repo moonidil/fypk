@@ -2,7 +2,7 @@ import { put } from "@vercel/blob"
 import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 4 * 1024 * 1024
 const allowedImageTypes = new Set([
   "image/jpeg",
   "image/png",
@@ -49,7 +49,8 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json({ url: blob.url })
-  } catch {
+  } catch (error) {
+    console.error("Blob upload failed:", error)
     return NextResponse.json({ error: "Failed to upload image" }, { status: 500 })
   }
 }

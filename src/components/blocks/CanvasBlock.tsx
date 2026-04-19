@@ -336,18 +336,21 @@ function ImageBlockContent({
         return
       }
 
+      setUploadError("")
+
       await onSave({
         ...content,
         title: title.trim(),
         imageUrl: uploadData.url,
       })
-
-      onStopEditing()
     } catch {
       setUploadError("Failed to upload image")
     } finally {
       setIsUploading(false)
-      e.target.value = ""
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
     }
   }
 
@@ -382,7 +385,7 @@ function ImageBlockContent({
     return (
       <div
         ref={wrapperRef}
-        className="mt-2 flex min-h-full flex-col gap-2 overflow-y-auto pr-1"
+        className="flex min-h-full flex-col gap-2 overflow-y-auto pr-1"
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onBlurCapture={handleBlurSave}
@@ -450,7 +453,7 @@ function ImageBlockContent({
         onStartEditing()
       }}
       onMouseDown={(e) => e.stopPropagation()}
-      className="mt-2 block h-[calc(100%-0.5rem)] w-full rounded-lg text-left transition hover:bg-gray-50/40"
+      className="block h-full w-full rounded-lg text-left transition hover:bg-gray-50/40"
     >
       {content.title ? (
         <p className="text-sm font-medium text-gray-800">{content.title}</p>
