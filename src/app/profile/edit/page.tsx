@@ -57,7 +57,7 @@ export default function EditProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const res = await fetch("/api/profile/edit")
+        const res = await fetch("/api/profile")
         const data = await res.json()
 
         if (!res.ok) {
@@ -123,7 +123,7 @@ export default function EditProfilePage() {
     }))
 
     try {
-      const res = await fetch("/api/profile/edit", {
+      const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

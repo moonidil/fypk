@@ -1,6 +1,5 @@
 //the profile creation endpoint. a protected route that requires authentication. It validates the input and checks for existing profiles before creating a new one. It also includes a GET handler to fetch the current user's profile
 import { prisma } from "@/lib/prisma"
-import { Prisma } from "@/generated/prisma/client"
 import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 
@@ -95,6 +94,71 @@ export async function GET() {
     }
 
     return NextResponse.json(profile)
+  } catch {
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
+    }
+
+    const { displayName, slug, bio } = await req.json()
+
+    if (!displayName?.trim() || !slug?.trim()) {
+      return NextResponse.json(
+        { error: "Display name and slug are required" },
+        { status: 400 }
+      )
+    }
+
+    if (!slugRegex.test(slug)) {
+      return NextResponse.json(
+        { error: "Slug can only contain lowercase letters, numbers and hyphens" },
+        { status: 400 }
+      )
+    }
+
+    if (slug.length < 3 || slug.length > 30) {
+      return NextResponse.json(
+        { error: "Slug must be between 3 and 30 characters" },
+        { status: 400 }
+      )
+    }
+
+    const existingSlug = await prisma.profile.findUnique({
+      where: { slug: slug.trim().toLowerCase() },
+    })
+
+    if (existingSlug && existingSlug.userId !== session.user.id) {
+      return NextResponse.json(
+        { error: "That slug is already taken" },
+        { status: 409 }
+      )
+    }
+
+    const profile = await prisma.profile.findUnique({
+      where: { userId: session.user.id },
+    })
+
+    if (!profile) {
+      return NextResponse.json({ error: "No profile found" }, { status: 404 })
+    }
+
+    const updatedProfile = await prisma.profile.update({
+      where: { userId: session.user.id },
+      data: {
+        displayName: displayName.trim(),
+        slug: slug.trim().toLowerCase(),
+        bio: bio?.trim() || null,
+      },
+    })
+
+    return NextResponse.json(updatedProfile)
   } catch {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
