@@ -612,7 +612,7 @@ export default function CanvasGrid({ hero }: Props) {
           Koda
         </div>
 
-        <div className="mt-7 h-10 w-10 rounded-full bg-black/90" />
+
 
         <button
           type="button"
