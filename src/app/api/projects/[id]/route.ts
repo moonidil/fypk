@@ -1,4 +1,4 @@
-//
+
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@/generated/prisma/client"
 import { auth } from "@/lib/auth"

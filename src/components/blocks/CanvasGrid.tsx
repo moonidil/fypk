@@ -1,10 +1,11 @@
-// canvasgrid.tsx
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
 import CanvasBlock from "./CanvasBlock"
 import CanvasAddMenu from "./CanvasAddMenu"
+import ProjectPicker from "./ProjectPicker"
 import type { BlockContent, BlockType } from "@/types"
 
 type Block = {
@@ -62,12 +63,15 @@ function rectanglesOverlap(
 }
 
 export default function CanvasGrid({ hero }: Props) {
+  const router = useRouter()
+
   const [blocks, setBlocks] = useState<Block[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false)
   const [dragState, setDragState] = useState<DragState>(null)
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number } | null>(null)
   const [resizeState, setResizeState] = useState<ResizeState>(null)
@@ -156,22 +160,6 @@ export default function CanvasGrid({ hero }: Props) {
     })
   }
 
-  function getBlockAtCell(x: number, y: number): Block | null {
-    return (
-      blocks.find((block) =>
-        rectanglesOverlap(
-          { x, y, width: 1, height: 1 },
-          {
-            x: block.x,
-            y: block.y,
-            width: block.width,
-            height: block.height,
-          }
-        )
-      ) || null
-    )
-  }
-
   function getSnappedBlockPosition(
     clientX: number,
     clientY: number,
@@ -215,7 +203,7 @@ export default function CanvasGrid({ hero }: Props) {
     return { width, height }
   }
 
-  function getDefaultContent(type: BlockType): BlockContent {
+  function getDefaultContent(type: BlockType, projectId?: string): BlockContent {
     if (type === "text") {
       return { title: "Text", text: "Add some text here." }
     }
@@ -243,12 +231,7 @@ export default function CanvasGrid({ hero }: Props) {
     }
 
     if (type === "project") {
-      return {
-        title: "Project",
-        text: "Project summary goes here.",
-        linkUrl: "https://github.com/",
-        linkLabel: "Repository",
-      }
+      return projectId ? { projectId } : {}
     }
 
     return {
@@ -271,7 +254,7 @@ export default function CanvasGrid({ hero }: Props) {
     }
 
     if (type === "project") {
-      return { width: 2, height: 2 }
+      return { width: 3, height: 3 }
     }
 
     if (type === "education") {
@@ -297,15 +280,27 @@ export default function CanvasGrid({ hero }: Props) {
     if (dragState || resizeState) return
     setSelectedBlockId(null)
     setMenuOpen(false)
+    setProjectPickerOpen(false)
   }
 
-  async function handleAddBlock(type: BlockType) {
+  function handleAddMenuSelect(type: BlockType) {
+    if (type === "project") {
+      setMenuOpen(false)
+      setProjectPickerOpen(true)
+      return
+    }
+
+    void handleAddBlock(type)
+  }
+
+  async function handleAddBlock(type: BlockType, projectId?: string) {
     const size = getInitialSize(type)
     const position = findFirstAvailablePosition(size.width, size.height)
 
     if (!position) {
       setError("No space left on the canvas for that block.")
       setMenuOpen(false)
+      setProjectPickerOpen(false)
       return
     }
 
@@ -321,7 +316,7 @@ export default function CanvasGrid({ hero }: Props) {
           y: position.y,
           width: size.width,
           height: size.height,
-          content: getDefaultContent(type),
+          content: getDefaultContent(type, projectId),
         }),
       })
 
@@ -334,10 +329,38 @@ export default function CanvasGrid({ hero }: Props) {
 
       setBlocks((prev) => [...prev, data])
       setSelectedBlockId(data.id)
-      setEditingBlockId(data.id)
+
+      //project blocks are read only so they should not enter editmode for cleanlines
+      if (type !== "project") {
+        setEditingBlockId(data.id)
+      }
+
       setMenuOpen(false)
+      setProjectPickerOpen(false)
     } catch {
       setError("Failed to add block")
+    }
+  }
+
+  //creates a new project then sends the user to its editor
+  async function handleCreateNewProject() {
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Untitled project" }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || "Failed to create project")
+        return
+      }
+
+      router.push(`/projects/${data.id}/edit`)
+    } catch {
+      setError("Failed to create project")
     }
   }
 
@@ -413,6 +436,7 @@ export default function CanvasGrid({ hero }: Props) {
 
     setSelectedBlockId(id)
     setMenuOpen(false)
+    setProjectPickerOpen(false)
   }
 
   function handleResizeStart(id: string, e: React.MouseEvent<HTMLButtonElement>) {
@@ -429,6 +453,7 @@ export default function CanvasGrid({ hero }: Props) {
 
     setSelectedBlockId(id)
     setMenuOpen(false)
+    setProjectPickerOpen(false)
   }
 
   useEffect(() => {
@@ -613,20 +638,26 @@ export default function CanvasGrid({ hero }: Props) {
           Koda
         </div>
 
-
-
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation()
             setSelectedBlockId(null)
             setMenuOpen((open) => !open)
+            setProjectPickerOpen(false)
           }}
           className="mt-7 flex h-11 w-11 items-center justify-center rounded-full bg-black text-2xl text-white shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:scale-[1.03] hover:opacity-95"
           aria-label="Add block"
         >
           +
         </button>
+
+        <Link
+          href="/projects"
+          className="mt-3 rounded-full bg-white px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-gray-500 shadow-sm transition hover:bg-gray-50"
+        >
+          Projects
+        </Link>
       </div>
 
       <div className="pl-[92px]">
@@ -693,11 +724,13 @@ export default function CanvasGrid({ hero }: Props) {
                 onSelect={(id) => {
                   setSelectedBlockId(id)
                   setMenuOpen(false)
+                  setProjectPickerOpen(false)
                 }}
                 onStartEditing={(id) => {
                   setSelectedBlockId(id)
                   setEditingBlockId(id)
                   setMenuOpen(false)
+                  setProjectPickerOpen(false)
                 }}
                 onStopEditing={() => setEditingBlockId(null)}
                 onSaveContent={handleSaveContent}
@@ -710,8 +743,20 @@ export default function CanvasGrid({ hero }: Props) {
               <CanvasAddMenu
                 x={28}
                 y={124}
-                onSelect={handleAddBlock}
+                onSelect={handleAddMenuSelect}
                 onClose={() => setMenuOpen(false)}
+              />
+            )}
+
+            {projectPickerOpen && (
+              <ProjectPicker
+                x={28}
+                y={124}
+                onSelect={(projectId) => {
+                  void handleAddBlock("project", projectId)
+                }}
+                onCreateNew={handleCreateNewProject}
+                onClose={() => setProjectPickerOpen(false)}
               />
             )}
           </div>

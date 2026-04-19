@@ -71,8 +71,14 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json(profile, { status: 201 })
-  } catch {
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+  } catch (error) {
+    console.error("POST /api/profile failed:", error)
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Something went wrong",
+      },
+      { status: 500 }
+    )
   }
 }
 

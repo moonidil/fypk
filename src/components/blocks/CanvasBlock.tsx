@@ -1,7 +1,7 @@
-//canvasblock.tsx
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import type { BlockContent, BlockType } from "@/types"
 
 type Props = {
@@ -286,7 +286,6 @@ function LinkBlockContent({
   )
 }
 
-
 function SkillsBlockContent({
   content,
   isEditing,
@@ -543,6 +542,7 @@ function ImageBlockContent({
         {uploadError && <p className="text-[11px] text-red-500">{uploadError}</p>}
 
         {content.imageUrl ? (
+          //eslint-disable-next-line @next/next/no-img-element
           <img
             src={content.imageUrl}
             alt={title || "Canvas image"}
@@ -575,6 +575,7 @@ function ImageBlockContent({
       )}
 
       {content.imageUrl ? (
+        //eslint-disable-next-line @next/next/no-img-element
         <img
           src={content.imageUrl}
           alt={content.title || "Canvas image"}
@@ -590,157 +591,145 @@ function ImageBlockContent({
   )
 }
 
-function ProjectBlockContent({
-  content,
-  isEditing,
-  onStartEditing,
-  onStopEditing,
-  onSave,
-}: EditableContentProps) {
-  const [title, setTitle] = useState(content.title ?? "")
-  const [text, setText] = useState(content.text ?? "")
-  const [linkUrl, setLinkUrl] = useState(content.linkUrl ?? "")
-  const [linkLabel, setLinkLabel] = useState(content.linkLabel ?? "")
-  const [isSaving, setIsSaving] = useState(false)
-  const wrapperRef = useRef<HTMLDivElement | null>(null)
-  const titleInputRef = useRef<HTMLInputElement | null>(null)
+//reads the referenced project and shows a small card. falls back to legacy
+//inline content when the block has no projectId (pre-commit-3 rows).
+function ProjectCard({ content }: { content: BlockContent }) {
+  const [project, setProject] = useState<{
+    id: string
+    title: string
+    description: string | null
+    visibility: string
+    artefacts: Array<{ id: string; type: string; url: string | null; label: string | null }>
+  } | null>(null)
+  const [loading, setLoading] = useState(Boolean(content.projectId))
+  const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    setTitle(content.title ?? "")
-    setText(content.text ?? "")
-    setLinkUrl(content.linkUrl ?? "")
-    setLinkLabel(content.linkLabel ?? "")
-  }, [content.title, content.text, content.linkUrl, content.linkLabel])
-
-  useEffect(() => {
-    if (isEditing) {
-      queueMicrotask(() => {
-        titleInputRef.current?.focus()
-      })
-    }
-  }, [isEditing])
-
-  const hasChanges = useMemo(() => {
-    return (
-      title !== (content.title ?? "") ||
-      text !== (content.text ?? "") ||
-      linkUrl !== (content.linkUrl ?? "") ||
-      linkLabel !== (content.linkLabel ?? "")
-    )
-  }, [content.title, content.text, content.linkUrl, content.linkLabel, title, text, linkUrl, linkLabel])
-
-  async function saveIfNeeded() {
-    if (!hasChanges) {
-      onStopEditing()
+    if (!content.projectId) {
+      setLoading(false)
       return
     }
 
-    setIsSaving(true)
+    let cancelled = false
 
-    try {
-      await onSave({
-        ...content,
-        title: title.trim(),
-        text: text.trim(),
-        linkUrl: linkUrl.trim(),
-        linkLabel: linkLabel.trim(),
-      })
-    } finally {
-      setIsSaving(false)
-      onStopEditing()
+    async function load() {
+      try {
+        const res = await fetch(`/api/projects/${content.projectId}`)
+
+        if (!res.ok) {
+          if (!cancelled) setNotFound(true)
+          return
+        }
+
+        const data = await res.json()
+        if (!cancelled) setProject(data)
+      } catch {
+        if (!cancelled) setNotFound(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  }
 
-  if (isEditing) {
+    load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [content.projectId])
+
+  //legacy block with inline content but no projectId. show it but point the user toward the structured editor
+  if (!content.projectId) {
     return (
-      <div
-        ref={wrapperRef}
-        className="flex min-h-full flex-col gap-2"
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-        onBlurCapture={(e) => {
-          const nextTarget = e.relatedTarget as Node | null
-
-          if (nextTarget && wrapperRef.current?.contains(nextTarget)) {
-            return
-          }
-
-          void saveIfNeeded()
-        }}
-      >
-        <input
-          ref={titleInputRef}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Project title"
-          className="bg-transparent text-base font-medium text-gray-900 outline-none"
-        />
-
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Project summary"
-          className="min-h-[120px] flex-1 resize-none bg-transparent text-sm leading-6 text-gray-700 outline-none"
-        />
-
-        <input
-          value={linkUrl}
-          onChange={(e) => setLinkUrl(e.target.value)}
-          placeholder="https://github.com/..."
-          className="bg-transparent text-sm text-gray-700 outline-none"
-        />
-
-        <input
-          value={linkLabel}
-          onChange={(e) => setLinkLabel(e.target.value)}
-          placeholder="Repository"
-          className="bg-transparent text-sm text-gray-500 outline-none"
-        />
-
-        <div className="text-[11px] text-gray-400">
-          {isSaving ? "Saving..." : "Click away to save"}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        onStartEditing()
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
-      className="block h-full w-full text-left"
-    >
-      {content.title ? (
-        <p className="text-base font-medium text-gray-900">{content.title}</p>
-      ) : (
-        <p className="text-base font-medium text-gray-400">Untitled project</p>
-      )}
-
-      {content.text ? (
-        <p className="mt-2 line-clamp-5 text-sm leading-6 text-gray-700">
-          {content.text}
+      <div className="h-full">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-amber-600">
+          Legacy
         </p>
-      ) : (
-        <p className="mt-2 text-sm text-gray-400">Click to add a project summary.</p>
-      )}
-
-      {content.linkUrl && (
-        <a
-          href={content.linkUrl}
-          target="_blank"
-          rel="noreferrer"
+        <p className="mt-1 text-base font-medium text-gray-900">
+          {content.title || "Untitled project"}
+        </p>
+        {content.text && (
+          <p className="mt-2 line-clamp-4 text-sm leading-6 text-gray-700">
+            {content.text}
+          </p>
+        )}
+        <Link
+          href="/projects"
           className="mt-3 inline-block text-sm text-blue-600 hover:underline"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {content.linkLabel || "Open project link"}
-        </a>
-      )}
-    </button>
+          Convert to project →
+        </Link>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return <p className="text-sm text-gray-400">Loading project...</p>
+  }
+
+  if (notFound || !project) {
+    return (
+      <div className="h-full">
+        <p className="text-sm text-gray-400">
+          This project has been deleted.
+        </p>
+      </div>
+    )
+  }
+
+  const primaryImage = project.artefacts.find(
+    (a) => a.type === "image" && a.url
+  )
+
+  return (
+    <Link
+      href={`/projects/${project.id}/edit`}
+      className="block h-full w-full"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-2">
+          <p className="flex-1 truncate text-base font-medium text-gray-900">
+            {project.title}
+          </p>
+          <VisibilityDot visibility={project.visibility} />
+        </div>
+
+        {project.description && (
+          <p className="mt-1 line-clamp-2 text-sm leading-6 text-gray-700">
+            {project.description}
+          </p>
+        )}
+
+        {primaryImage?.url && (
+          //eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={primaryImage.url}
+            alt={primaryImage.label || project.title}
+            className="mt-3 min-h-0 flex-1 w-full rounded-[20px] object-cover"
+            draggable={false}
+          />
+        )}
+      </div>
+    </Link>
+  )
+}
+
+function VisibilityDot({ visibility }: { visibility: string }) {
+  const color =
+    visibility === "PUBLIC"
+      ? "bg-emerald-400"
+      : visibility === "PRIVATE"
+        ? "bg-amber-400"
+        : "bg-gray-300"
+
+  return (
+    <span
+      className={`inline-block h-1.5 w-1.5 rounded-full ${color}`}
+      aria-label={visibility.toLowerCase()}
+    />
   )
 }
 
@@ -765,39 +754,6 @@ function renderBlockView(type: BlockType, content: BlockContent) {
           </div>
         ) : (
           <p className="text-sm text-gray-500">No skills added yet.</p>
-        )}
-      </>
-    )
-  }
-
-  if (type === "project") {
-    return (
-      <>
-        {content.title && (
-          <p className="text-sm font-medium text-gray-900">{content.title}</p>
-        )}
-
-        {content.text && (
-          <p className="mt-1 line-clamp-5 text-sm leading-6 text-gray-700">
-            {content.text}
-          </p>
-        )}
-
-        {content.linkUrl && (
-          <a
-            href={content.linkUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-block text-sm text-blue-600 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {content.linkLabel || "Open project link"}
-          </a>
-        )}
-
-        {!content.title && !content.text && (
-          <p className="text-sm text-gray-500">No project content yet.</p>
         )}
       </>
     )
@@ -891,7 +847,8 @@ export default function CanvasBlock({
         />
       )
     }
-        if (type === "skills") {
+
+    if (type === "skills") {
       return (
         <SkillsBlockContent
           content={content}
@@ -904,16 +861,9 @@ export default function CanvasBlock({
     }
 
     if (type === "project") {
-      return (
-        <ProjectBlockContent
-          content={content}
-          isEditing={isEditing}
-          onStartEditing={() => onStartEditing(id)}
-          onStopEditing={onStopEditing}
-          onSave={(nextContent) => onSaveContent(id, nextContent)}
-        />
-      )
+      return <ProjectCard content={content} />
     }
+
     return renderBlockView(type, content)
   }
 

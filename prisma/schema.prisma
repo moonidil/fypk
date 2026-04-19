@@ -27,9 +27,6 @@ model Profile {
   bio         String?
   slug        String   @unique
   isPublic    Boolean  @default(false)
-  heroX       Int      @default(1)
-  heroY       Int      @default(1)
-  heroWidth   Int      @default(3)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -25,7 +25,8 @@ export async function GET() {
     })
 
     return NextResponse.json(projects)
-  } catch {
+  } catch (err) {
+    console.error("POST /api/projects failed:", err)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }
@@ -56,7 +57,8 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json(project, { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error("POST /api/projects failed:", err)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }

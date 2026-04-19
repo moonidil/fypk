@@ -16,6 +16,9 @@ export interface BlockContent {
   linkLabel?: string
   skills?: string[]
 
+  //reference to a structured project when the block type is "project".
+  projectId?: string
+
   //link preview fields
   description?: string
   siteName?: string
