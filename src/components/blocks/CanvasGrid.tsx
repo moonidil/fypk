@@ -696,28 +696,22 @@ export default function CanvasGrid({ hero }: Props) {
 
             {menuOpen && (
               <CanvasAddMenu
-                x={gridWidth - 300}
-                y={gridHeight / 2 - 180}
+                x={gridWidth - 248}
+                y={gridHeight - 290}
                 onSelect={handleAddBlock}
                 onClose={() => setMenuOpen(false)}
               />
             )}
 
-            {blocks.length === 0 && !error && (
-              <div className="absolute bottom-4 right-24 max-w-sm rounded-[24px] bg-white/80 px-4 py-3 text-sm text-gray-500 shadow-sm backdrop-blur-sm">
-                Use the side + button to add something to the canvas.
-              </div>
-            )}
-
             <button
               type="button"
               onClick={(e) => {
-                e.stopPropagation()
-                setSelectedBlockId(null)
-                setMenuOpen((open) => !open)
+               e.stopPropagation()
+               setSelectedBlockId(null)
+               setMenuOpen((open) => !open)
               }}
-              className="absolute right-4 top-1/2 z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black text-2xl text-white shadow-[0_16px_40px_rgba(0,0,0,0.18)] transition hover:scale-[1.03] hover:opacity-95"
-              aria-label="Add block"
+               className="absolute bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-black text-3xl text-white shadow-[0_16px_40px_rgba(0,0,0,0.18)] transition hover:scale-[1.03] hover:opacity-95"
+               aria-label="Add block"
             >
               +
             </button>

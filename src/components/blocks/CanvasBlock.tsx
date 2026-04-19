@@ -44,7 +44,8 @@ type EditableContentProps = {
 const CELL_SIZE = 80
 const GAP = 6
 
-const blockBase = "bg-transparent shadow-none backdrop-blur-0"
+const blockBase =
+  "bg-white/72 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
 
 function TextBlockContent({
   content,
@@ -79,9 +80,9 @@ function TextBlockContent({
       onStopEditing()
       return
     }
-  
+
     setIsSaving(true)
-  
+
     try {
       await onSave({
         ...content,
@@ -92,6 +93,38 @@ function TextBlockContent({
       setIsSaving(false)
       onStopEditing()
     }
+  }
+
+  if (isEditing) {
+    return (
+      <div
+        ref={wrapperRef}
+        className="flex min-h-full flex-col gap-2"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onBlurCapture={(e) => {
+          const nextTarget = e.relatedTarget as Node | null
+
+          if (nextTarget && wrapperRef.current?.contains(nextTarget)) {
+            return
+          }
+
+          void saveIfNeeded()
+        }}
+      >
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Write something here..."
+          className="min-h-[180px] flex-1 resize-none bg-transparent text-[15px] leading-7 text-gray-800 outline-none"
+        />
+
+        <div className="text-[11px] text-gray-400">
+          {isSaving ? "Saving..." : "Click away to save"}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -228,72 +261,23 @@ function LinkBlockContent({
       onMouseDown={(e) => e.stopPropagation()}
       className="block w-full text-left"
     >
+      {content.title ? (
+        <p className="text-sm font-medium text-gray-900">{content.title}</p>
+      ) : (
+        <p className="text-sm font-medium text-gray-400">Untitled link</p>
+      )}
+
       {content.linkUrl ? (
-        <div className="space-y-3">
-          <a
-            href={content.linkUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="block break-words text-sm text-blue-600 underline-offset-2 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {content.linkUrl}
-          </a>
-
-          <div className="overflow-hidden rounded-[24px] bg-white/80 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-black/5">
-            <div className="grid min-h-[148px] grid-cols-[120px_1fr]">
-              <div className="bg-gray-100">
-                {content.previewImage ? (
-                  //eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={content.previewImage}
-                    alt={content.title || content.githubRepo || "Link preview"}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-4xl text-gray-400">
-                    ↗
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col justify-between p-5">
-                <div>
-                  <p className="text-[15px] font-semibold text-gray-900">
-                    {content.title || "Untitled link"}
-                  </p>
-
-                  {content.description && (
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-gray-600">
-                      {content.description}
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  {content.githubOwner && content.githubRepo && (
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                      <span>{content.githubOwner}/{content.githubRepo}</span>
-
-                      {typeof content.githubStars === "number" && (
-                        <span>★ {content.githubStars}</span>
-                      )}
-
-                      {content.githubLanguage && (
-                        <span>{content.githubLanguage}</span>
-                      )}
-                    </div>
-                  )}
-
-                  <p className="text-sm text-gray-500">
-                    {content.siteName || "External link"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <a
+          href={content.linkUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 block break-words text-sm text-blue-600 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {content.linkLabel || content.linkUrl}
+        </a>
       ) : (
         <p className="mt-1 text-sm text-gray-400">Click to add a link.</p>
       )}
@@ -906,7 +890,7 @@ export default function CanvasBlock({
         />
       )
     }
-    if (type === "skills") {
+        if (type === "skills") {
       return (
         <SkillsBlockContent
           content={content}
@@ -929,7 +913,6 @@ export default function CanvasBlock({
         />
       )
     }
-
     return renderBlockView(type, content)
   }
 
@@ -945,11 +928,10 @@ export default function CanvasBlock({
         e.stopPropagation()
         onSelect(id)
       }}
-      className={`group relative p-3 transition-all duration-200 ${blockBase} ${
-        isDragging || isResizing ? "z-30 opacity-90" : ""
-      } ${isSelected ? "rounded-[20px] bg-white/40" : ""} ${
-        !isSelected && !suppressHoverChrome ? "hover:scale-[1.01]" : ""
-      } ${isEditing ? "z-30 overflow-visible rounded-[20px] bg-white/70 backdrop-blur-sm" : "overflow-hidden"}`}
+      className={`group relative rounded-[28px] p-4 transition-all duration-200 ${blockBase} ${
+        isDragging || isResizing ? "shadow-[0_18px_50px_rgba(0,0,0,0.10)]" : ""
+      } ${isDragging ? "opacity-85" : ""} ${isResizing ? "opacity-90" : ""
+      } ${isEditing ? "z-30 overflow-visible" : "overflow-hidden"}`}
     >
       <div
         onMouseDown={(e) => {
@@ -958,7 +940,7 @@ export default function CanvasBlock({
             onDragStart(id, e)
           }
         }}
-        className={`mb-2 h-5 ${
+        className={`-mx-4 -mt-4 mb-2 flex h-6 items-start justify-end px-4 pt-2 ${
           isEditing ? "cursor-default" : isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
       />
@@ -974,12 +956,8 @@ export default function CanvasBlock({
           onDelete(id)
         }}
         onMouseDown={(e) => e.stopPropagation()}
-        className={`absolute right-2 top-2 z-10 h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
-          isEditing || suppressHoverChrome
-            ? "hidden"
-            : isSelected
-              ? "flex"
-              : "hidden group-hover:flex"
+        className={`absolute right-3 top-3 z-10 h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition hover:bg-red-200 ${
+          isEditing ? "hidden" : isSelected ? "flex" : "hidden group-hover:flex"
         }`}
         aria-label="Delete block"
       >
@@ -994,8 +972,8 @@ export default function CanvasBlock({
           e.stopPropagation()
           onResizeStart(id, e)
         }}
-        className={`absolute bottom-3 right-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-gray-500 shadow-sm ring-1 ring-black/5 transition ${
-          isEditing || suppressHoverChrome
+        className={`absolute bottom-2 right-2 h-5 w-5 rounded-full bg-white/90 text-gray-400 shadow-sm transition ${
+          isEditing
             ? "pointer-events-none opacity-0"
             : isSelected
               ? "opacity-100"
