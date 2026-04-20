@@ -20,9 +20,6 @@ export async function GET() {
       displayName: true,
       bio: true,
       slug: true,
-      heroX: true,
-      heroY: true,
-      heroWidth: true,
     },
   })
 
@@ -111,9 +108,6 @@ export async function PATCH(req: Request) {
         displayName: true,
         bio: true,
         slug: true,
-        heroX: true,
-        heroY: true,
-        heroWidth: true,
       },
     })
 

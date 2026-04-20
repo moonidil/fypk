@@ -75,12 +75,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
+    <main className="min-h-screen flex items-center justify-center bg-green-50 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight">Log in to Koda</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Welcome back! Manage your identity with ease.
+          <h1 className="text-2xl font-bold tracking-tight">KODA login</h1>
+          <p className="mt-2 text-sm text-500">
+            Welcome back!! Manage your identity with ease
           </p>
         </div>
 
@@ -121,7 +121,7 @@ export default function LoginPage() {
               </label>
               <Link
                 href="/forgot-password"
-                className="text-xs text-gray-500 hover:text-black hover:underline"
+                className="text-xs text-pink-500 hover:text-black hover:underline"
               >
                 Forgot password?
               </Link>
@@ -169,7 +169,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={state.loading || !formIsValid}
-            className="w-full rounded-lg bg-black py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg bg-black py-2 text-sm font-medium text-white hover:bg-pink-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {state.loading ? "Logging in..." : "Log in"}
           </button>

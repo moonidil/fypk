@@ -1,7 +1,7 @@
-//[slug]/page.tsx
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import type { BlockContent, BlockType } from "@/types"
+import type { BlockContent } from "@/types"
+import { blockStyleClasses } from "@/lib/blockStyle"
 
 type PageProps = {
   params: Promise<{
@@ -43,98 +43,29 @@ function normaliseContent(value: unknown): BlockContent {
 }
 
 function renderBlockContent(type: string, content: BlockContent) {
+  const styled = blockStyleClasses(content.style)
+
   if (type === "text") {
     return content.text ? (
-      <p className="whitespace-pre-wrap text-[15px] leading-7 text-gray-800">
+      <p className={`whitespace-pre-wrap text-gray-800 ${styled}`}>
         {content.text}
       </p>
-    ) : (
-      <p className="text-sm text-gray-400">No text added yet.</p>
-    )
+    ) : null
   }
 
   if (type === "link") {
     return (
-      <div className="space-y-3">
-        <p className="text-sm font-medium text-gray-900">
-          {content.title || content.linkLabel || "Link"}
-        </p>
+      <div>
+        {(content.title || content.linkLabel) && (
+          <p className="text-sm font-medium text-gray-900">
+            {content.title || content.linkLabel}
+          </p>
+        )}
 
         {content.description && (
-          <p className="text-sm leading-6 text-gray-600">
+          <p className="mt-1 text-sm leading-6 text-gray-600">
             {content.description}
           </p>
-        )}
-
-        {content.linkUrl ? (
-          <a
-            href={content.linkUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="block break-words text-sm text-blue-600 underline-offset-2 hover:underline"
-          >
-            {content.linkUrl}
-          </a>
-        ) : (
-          <p className="text-sm text-gray-400">No link added yet.</p>
-        )}
-      </div>
-    )
-  }
-
-  if (type === "skills") {
-    const skills = Array.isArray(content.skills) ? content.skills : []
-
-    return skills.length > 0 ? (
-      <div className="flex flex-wrap gap-x-3 gap-y-2">
-        {skills.map((skill) => (
-          <span key={skill} className="text-sm font-medium text-gray-700">
-            {skill}
-          </span>
-        ))}
-      </div>
-    ) : (
-      <p className="text-sm text-gray-400">No skills added yet.</p>
-    )
-  }
-
-  if (type === "image") {
-    return (
-      <div className="h-full">
-        {content.title && (
-          <p className="mb-2 text-sm font-medium text-gray-900">{content.title}</p>
-        )}
-
-        {content.imageUrl ? (
-          //eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={content.imageUrl}
-            alt={content.title || "Canvas image"}
-            className="h-[calc(100%-1.75rem)] w-full rounded-[24px] object-cover"
-            draggable={false}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center rounded-[24px] bg-white text-sm text-gray-400 ring-1 ring-dashed ring-gray-200">
-            No image added yet
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  if (type === "project") {
-    return (
-      <div className="h-full">
-        <p className="text-sm font-medium text-gray-900">
-          {content.title || "Untitled project"}
-        </p>
-
-        {content.text ? (
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">
-            {content.text}
-          </p>
-        ) : (
-          <p className="mt-2 text-sm text-gray-400">No project summary added yet.</p>
         )}
 
         {content.linkUrl && (
@@ -142,7 +73,73 @@ function renderBlockContent(type: string, content: BlockContent) {
             href={content.linkUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-4 inline-block text-sm text-blue-600 underline-offset-2 hover:underline"
+            className="mt-1 block break-words text-sm text-blue-600 underline-offset-2 hover:underline"
+          >
+            {content.linkLabel || content.linkUrl}
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  if (type === "skills") {
+    const skills = Array.isArray(content.skills) ? content.skills : []
+    const pillClasses = `rounded-full bg-white px-2.5 py-1 text-gray-700 shadow-sm ${styled}`
+
+    if (skills.length === 0) return null
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        {skills.map((skill) => (
+          <span key={skill} className={pillClasses}>
+            {skill}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  if (type === "image") {
+    return (
+      <div className="flex h-full w-full flex-col">
+        {content.title && (
+          <p className="mb-1.5 text-sm font-medium text-gray-900">
+            {content.title}
+          </p>
+        )}
+
+        {content.imageUrl && (
+          //eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={content.imageUrl}
+            alt={content.title || "Canvas image"}
+            className="min-h-0 flex-1 w-full rounded-[16px] object-cover"
+            draggable={false}
+          />
+        )}
+      </div>
+    )
+  }
+
+  if (type === "project") {
+    return (
+      <div>
+        {content.title && (
+          <p className="text-base font-medium text-gray-900">{content.title}</p>
+        )}
+
+        {content.text && (
+          <p className={`mt-1 whitespace-pre-wrap text-gray-700 ${styled}`}>
+            {content.text}
+          </p>
+        )}
+
+        {content.linkUrl && (
+          <a
+            href={content.linkUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block text-sm text-blue-600 underline-offset-2 hover:underline"
           >
             {content.linkLabel || "Open project"}
           </a>
@@ -153,27 +150,21 @@ function renderBlockContent(type: string, content: BlockContent) {
 
   if (type === "education") {
     return (
-      <div className="h-full">
-        <p className="text-sm font-medium text-gray-900">
-          {content.title || "Education"}
-        </p>
+      <div>
+        {content.title && (
+          <p className="text-sm font-medium text-gray-900">{content.title}</p>
+        )}
 
-        {content.text ? (
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">
+        {content.text && (
+          <p className={`mt-1 whitespace-pre-wrap text-gray-700 ${styled}`}>
             {content.text}
           </p>
-        ) : (
-          <p className="mt-2 text-sm text-gray-400">No education details added yet.</p>
         )}
       </div>
     )
   }
 
-  return (
-    <p className="text-sm text-gray-400">
-      This block type does not have a public renderer yet.
-    </p>
-  )
+  return null
 }
 
 export default async function PublicProfilePage({ params }: PageProps) {
@@ -222,67 +213,54 @@ export default async function PublicProfilePage({ params }: PageProps) {
   }))
 
   return (
-    <main className="min-h-screen bg-[#f6f6f3] p-4 sm:p-6">
-      <div className="relative min-h-[calc(100vh-3rem)] overflow-auto rounded-[32px] bg-white/65 shadow-[0_20px_80px_rgba(0,0,0,0.06)] backdrop-blur-sm">
-        <div className="absolute inset-y-0 left-0 w-[92px] bg-white/45 backdrop-blur-sm" />
+    <main className="min-h-screen bg-[#f6f6f3] p-4 sm:p-8">
+      <div className="relative mx-auto max-w-[1200px] overflow-auto rounded-[32px] bg-white/65 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.06)] backdrop-blur-sm sm:p-10">
+        <div
+          className="relative rounded-[28px]"
+          style={{
+            width: gridWidth,
+            height: gridHeight,
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgba(15,23,42,0.06) 1px, transparent 0)",
+            backgroundSize: `${CELL_SIZE + GAP}px ${CELL_SIZE + GAP}px`,
+            backgroundPosition: "0 0",
+          }}
+        >
+          <div
+            className="absolute"
+            style={{
+              left: 1 * (CELL_SIZE + GAP),
+              top: 1 * (CELL_SIZE + GAP),
+              width: 3 * CELL_SIZE + 2 * GAP,
+            }}
+          >
+            <p className="break-words text-[clamp(1.75rem,4vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-gray-950">
+              {profile.displayName}
+            </p>
 
-        <div className="absolute left-0 top-0 z-10 flex w-[92px] flex-col items-center gap-3 p-4">
-          <div className="text-[10px] uppercase tracking-[0.24em] text-gray-400">
-            Koda
+            <p className="mt-2 text-sm text-gray-500">koda.app/{profile.slug}</p>
+
+            {profile.bio && (
+              <p className="mt-4 max-w-md text-sm leading-7 text-gray-600">
+                {profile.bio}
+              </p>
+            )}
           </div>
-          <div className="h-10 w-10 rounded-full bg-black/90" />
-          <div className="h-2 w-2 rounded-full bg-gray-300" />
-          <div className="h-2 w-2 rounded-full bg-gray-300" />
-          <div className="h-2 w-2 rounded-full bg-gray-300" />
-        </div>
 
-        <div className="pl-[92px]">
-          <div className="p-6">
-            <div
-              className="relative rounded-[28px]"
-              style={{
-                width: gridWidth,
-                height: gridHeight,
-                backgroundImage:
-                  "radial-gradient(circle at 1px 1px, rgba(15,23,42,0.08) 1px, transparent 0)",
-                backgroundSize: `${CELL_SIZE + GAP}px ${CELL_SIZE + GAP}px`,
-                backgroundPosition: "0 0",
-              }}
-            >
-                <div
-                className="absolute rounded-[28px] bg-transparent px-1 py-1"
-                style={{
-                    left: 0,
-                    top: 0,
-                    width: 5 * CELL_SIZE + 4 * GAP,
-                }}
-                >
-                <p className="text-[clamp(2rem,5vw,4rem)] font-semibold tracking-[-0.05em] text-gray-950">
-                  {profile.displayName}
-                </p>
+          {publicBlocks.map((block) => {
+            const inner = renderBlockContent(block.type, block.content)
+            if (inner === null) return null
 
-                <div className="mt-2 text-sm text-gray-500">
-                  koda.app/{profile.slug}
-                </div>
-
-                {profile.bio && (
-                  <p className="mt-4 max-w-xl text-sm leading-7 text-gray-600">
-                    {profile.bio}
-                  </p>
-                )}
-              </div>
-
-              {publicBlocks.map((block) => (
-                <article
-                  key={block.id}
-                  style={getBlockStyle(block.x, block.y, block.width, block.height)}
-                  className="absolute overflow-hidden rounded-[20px] bg-transparent p-3"
-                >
-                  {renderBlockContent(block.type, block.content)}
-                </article>
-              ))}
-            </div>
-          </div>
+            return (
+              <article
+                key={block.id}
+                style={getBlockStyle(block.x, block.y, block.width, block.height)}
+                className="absolute overflow-hidden rounded-[20px] bg-white/50 p-3 ring-1 ring-black/5 backdrop-blur-sm"
+              >
+                {inner}
+              </article>
+            )
+          })}
         </div>
       </div>
     </main>

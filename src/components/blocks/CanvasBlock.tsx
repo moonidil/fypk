@@ -2,7 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import type { BlockContent, BlockType } from "@/types"
+import type {
+  BlockContent,
+  BlockStyle,
+  BlockStyleSize,
+  BlockStyleWeight,
+  BlockType,
+} from "@/types"
+import {
+  BLOCK_SIZE_OPTIONS,
+  BLOCK_WEIGHT_OPTIONS,
+  blockStyleClasses,
+} from "@/lib/blockStyle"
 
 type Props = {
   id: string
@@ -47,6 +58,57 @@ const GAP = 6
 
 const blockBase =
   "bg-white/72 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+
+//small inline dropdown s for size and weight shown when editing the block
+function StyleStrip({
+  style,
+  onChange,
+}: {
+  style: BlockStyle | undefined
+  onChange: (next: BlockStyle) => void
+}) {
+  const currentSize = style?.size ?? "md"
+  const currentWeight = style?.weight ?? "normal"
+
+  return (
+    <div
+      className="flex items-center gap-2 text-[11px] text-gray-400"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <select
+        value={currentSize}
+        onChange={(e) =>
+          onChange({ ...(style ?? {}), size: e.target.value as BlockStyleSize })
+        }
+        className="rounded-full bg-white px-2 py-1 text-[11px] text-gray-600 outline-none ring-1 ring-gray-200"
+      >
+        {BLOCK_SIZE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={currentWeight}
+        onChange={(e) =>
+          onChange({
+            ...(style ?? {}),
+            weight: e.target.value as BlockStyleWeight,
+          })
+        }
+        className="rounded-full bg-white px-2 py-1 text-[11px] text-gray-600 outline-none ring-1 ring-gray-200"
+      >
+        {BLOCK_WEIGHT_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 function TextBlockContent({
   content,
@@ -96,6 +158,16 @@ function TextBlockContent({
     }
   }
 
+  async function handleStyleChange(next: BlockStyle) {
+    await onSave({
+      ...content,
+      text: text.trim() || content.text || "",
+      style: next,
+    })
+  }
+
+  const textClasses = `${blockStyleClasses(content.style)} text-gray-800`
+
   if (isEditing) {
     return (
       <div
@@ -113,12 +185,14 @@ function TextBlockContent({
           void saveIfNeeded()
         }}
       >
+        <StyleStrip style={content.style} onChange={handleStyleChange} />
+
         <textarea
           ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Write something here..."
-          className="min-h-[180px] flex-1 resize-none bg-transparent text-[15px] leading-7 text-gray-800 outline-none"
+          className={`min-h-[180px] flex-1 resize-none bg-transparent outline-none ${textClasses}`}
         />
 
         <div className="text-[11px] text-gray-400">
@@ -139,11 +213,11 @@ function TextBlockContent({
       className="block h-full w-full text-left"
     >
       {content.text ? (
-        <p className="whitespace-pre-wrap text-[15px] leading-7 text-gray-800">
-          {content.text}
-        </p>
+        <p className={`whitespace-pre-wrap ${textClasses}`}>{content.text}</p>
       ) : (
-        <p className="text-[15px] text-gray-400">Click to add text.</p>
+        <p className={textClasses}>
+          <span className="text-gray-400">Click to add text.</span>
+        </p>
       )}
     </button>
   )
@@ -339,6 +413,18 @@ function SkillsBlockContent({
     }
   }
 
+  async function handleStyleChange(next: BlockStyle) {
+    await onSave({
+      ...content,
+      skills: parsedSkills.length > 0 ? parsedSkills : content.skills ?? [],
+      style: next,
+    })
+  }
+
+  const pillClasses = `rounded-full bg-white px-2.5 py-1 text-gray-700 shadow-sm ${blockStyleClasses(
+    content.style
+  )}`
+
   if (isEditing) {
     return (
       <div
@@ -356,6 +442,8 @@ function SkillsBlockContent({
           void saveIfNeeded()
         }}
       >
+        <StyleStrip style={content.style} onChange={handleStyleChange} />
+
         <input
           ref={inputRef}
           value={value}
@@ -364,12 +452,9 @@ function SkillsBlockContent({
           className="bg-transparent text-sm text-gray-800 outline-none"
         />
 
-        <div className="flex flex-wrap gap-x-3 gap-y-2">
+        <div className="flex flex-wrap gap-2">
           {parsedSkills.map((skill) => (
-            <span
-              key={skill}
-              className="text-sm font-medium text-gray-700"
-            >
+            <span key={skill} className={pillClasses}>
               {skill}
             </span>
           ))}
@@ -393,12 +478,9 @@ function SkillsBlockContent({
       className="block h-full w-full text-left"
     >
       {content.skills && content.skills.length > 0 ? (
-        <div className="flex flex-wrap gap-x-3 gap-y-2">
+        <div className="flex flex-wrap gap-2">
           {content.skills.map((skill) => (
-            <span
-              key={skill}
-              className="text-sm font-medium text-gray-700"
-            >
+            <span key={skill} className={pillClasses}>
               {skill}
             </span>
           ))}
@@ -637,7 +719,6 @@ function ProjectCard({ content }: { content: BlockContent }) {
     }
   }, [content.projectId])
 
-  //legacy block with inline content but no projectId. show it but point the user toward the structured editor
   if (!content.projectId) {
     return (
       <div className="h-full">
@@ -734,32 +815,8 @@ function VisibilityDot({ visibility }: { visibility: string }) {
 }
 
 function renderBlockView(type: BlockType, content: BlockContent) {
-  if (type === "skills") {
-    return (
-      <>
-        {content.title && (
-          <p className="text-sm font-medium text-gray-900">{content.title}</p>
-        )}
-
-        {content.skills && content.skills.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {content.skills.map((skill) => (
-              <span
-                key={skill}
-                className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-700 shadow-sm"
-              >
-                {skill}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">No skills added yet.</p>
-        )}
-      </>
-    )
-  }
-
   if (type === "education") {
+    const textClasses = `${blockStyleClasses(content.style)} text-gray-700`
     return (
       <>
         {content.title && (
@@ -767,9 +824,7 @@ function renderBlockView(type: BlockType, content: BlockContent) {
         )}
 
         {content.text && (
-          <p className="mt-1 line-clamp-5 text-sm leading-6 text-gray-700">
-            {content.text}
-          </p>
+          <p className={`mt-1 line-clamp-5 ${textClasses}`}>{content.text}</p>
         )}
 
         {!content.title && !content.text && (

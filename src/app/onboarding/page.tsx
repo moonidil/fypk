@@ -106,13 +106,13 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
+    <main className="min-h-screen flex items-center justify-center bg-white-50 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">
             Set up your profile
           </h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-green-500">
             This is how others will find and see you on Koda.
           </p>
         </div>
@@ -186,7 +186,7 @@ export default function OnboardingPage() {
                 setState((s) => ({ ...s, bio: e.target.value }))
               }
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black resize-none"
-              placeholder="A short line about you"
+              placeholder="A bit about you..."
               rows={3}
               disabled={state.loading}
             />
@@ -201,7 +201,7 @@ export default function OnboardingPage() {
           <button
             type="submit"
             disabled={state.loading || !formIsValid}
-            className="w-full rounded-lg bg-black py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg bg-black py-2 text-sm font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {state.loading ? "Creating profile..." : "Create profile"}
           </button>

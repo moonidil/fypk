@@ -7,6 +7,15 @@ export type BlockType =
   | "education"
   | "link"
 
+//chill block styling controls used by text skills and education blocks
+export type BlockStyleSize = "sm" | "md" | "lg"
+export type BlockStyleWeight = "normal" | "medium" | "bold"
+export interface BlockStyle {
+  size?: BlockStyleSize
+  weight?: BlockStyleWeight
+}
+
+
 //stores flexible content depending on the type of block.
 export interface BlockContent {
   text?: string
@@ -16,9 +25,12 @@ export interface BlockContent {
   linkLabel?: string
   skills?: string[]
 
-  //reference to a structured project when the block type is "project".
+  //reference to a structured project when the block type is "project"
   projectId?: string
 
+  //optional per block style overrides
+  style?: BlockStyle
+  
   //link preview fields
   description?: string
   siteName?: string
