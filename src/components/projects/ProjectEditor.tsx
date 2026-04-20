@@ -294,17 +294,58 @@ type ArtefactsPanelProps = {
   onError: (message: string) => void
 }
 
+
+
 function ArtefactsPanel({ projectId, artefacts, onChange, onError }: ArtefactsPanelProps) {
   const [adding, setAdding] = useState<ArtefactType | null>(null)
   const [draftUrl, setDraftUrl] = useState("")
   const [draftContent, setDraftContent] = useState("")
   const [draftLabel, setDraftLabel] = useState("")
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   function resetDraft() {
     setAdding(null)
     setDraftUrl("")
     setDraftContent("")
     setDraftLabel("")
+    setIsUploading(false)
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  //handles image uploads through the shared /api/upload endpoint that canvas image blocks also use and so artefact images and canvas images live together
+  async function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      const uploadData = await uploadRes.json().catch(() => null)
+
+      if (!uploadRes.ok) {
+        onError(uploadData?.error || "Failed to upload image")
+        setIsUploading(false)
+        return
+      }
+
+      setDraftUrl(uploadData.url)
+    } catch {
+      onError("Failed to upload image")
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   async function handleAdd() {
@@ -374,7 +415,7 @@ function ArtefactsPanel({ projectId, artefacts, onChange, onError }: ArtefactsPa
       <div className="mt-4 space-y-3">
         {artefacts.length === 0 && !adding && (
           <p className="text-sm text-gray-400">
-            Add links, images or short notes as evidence for this project.
+            Add links, images or short notes as evidence for this project
           </p>
         )}
 
@@ -392,7 +433,7 @@ function ArtefactsPanel({ projectId, artefacts, onChange, onError }: ArtefactsPa
               New {adding}
             </p>
 
-            {adding === "text" ? (
+            {adding === "text" && (
               <textarea
                 value={draftContent}
                 onChange={(e) => setDraftContent(e.target.value)}
@@ -400,13 +441,49 @@ function ArtefactsPanel({ projectId, artefacts, onChange, onError }: ArtefactsPa
                 rows={3}
                 className="w-full resize-none rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-800 outline-none ring-1 ring-gray-200 focus:ring-gray-300"
               />
-            ) : (
+            )}
+
+            {adding === "link" && (
               <input
                 value={draftUrl}
                 onChange={(e) => setDraftUrl(e.target.value)}
-                placeholder={adding === "image" ? "Image URL" : "https://..."}
+                placeholder="https://..."
                 className="w-full rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-800 outline-none ring-1 ring-gray-200 focus:ring-gray-300"
               />
+            )}
+
+            {adding === "image" && (
+              <div className="space-y-2">
+                {draftUrl ? (
+                  //eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={draftUrl}
+                    alt="New artefact"
+                    className="w-full rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="flex h-24 items-center justify-center rounded-xl bg-gray-50 text-xs text-gray-400 ring-1 ring-dashed ring-gray-200">
+                    {isUploading ? "Uploading..." : "No image selected"}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-700 ring-1 ring-gray-200 transition hover:bg-gray-100 disabled:opacity-50"
+                >
+                  {draftUrl ? "Replace image" : "Choose image"}
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => void handleImageFileChange(e)}
+                />
+              </div>
             )}
 
             <input
@@ -420,7 +497,8 @@ function ArtefactsPanel({ projectId, artefacts, onChange, onError }: ArtefactsPa
               <button
                 type="button"
                 onClick={() => void handleAdd()}
-                className="rounded-full bg-black px-3 py-1.5 text-xs text-white transition hover:opacity-90"
+                disabled={isUploading}
+                className="rounded-full bg-black px-3 py-1.5 text-xs text-white transition hover:opacity-90 disabled:opacity-50"
               >
                 Save
               </button>
@@ -441,7 +519,7 @@ function ArtefactsPanel({ projectId, artefacts, onChange, onError }: ArtefactsPa
           <AddArtefactButton label="+ Link" onClick={() => setAdding("link")} />
           <AddArtefactButton label="+ Image" onClick={() => setAdding("image")} />
           <AddArtefactButton label="+ Note" onClick={() => setAdding("text")} />
-        </div> 
+        </div>
       )}
     </aside>
   )
@@ -460,55 +538,57 @@ function AddArtefactButton({ label, onClick }: { label: string; onClick: () => v
 }
 
 function ArtefactRow({
-    artefact,
-    onDelete,
-  }: {
-    artefact: Artefact
-    onDelete: () => void
-  }) {
-    return (
-      <div className="group flex items-start gap-3 rounded-2xl bg-white p-3 ring-1 ring-gray-100">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-400">
-            {artefact.type}
-            {artefact.label ? ` · ${artefact.label}` : ""}
+  artefact,
+  onDelete,
+}: {
+  artefact: Artefact
+  onDelete: () => void
+}) {
+  return (
+    <div className="group flex items-start gap-3 rounded-2xl bg-white p-3 ring-1 ring-gray-100">
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-400">
+          {artefact.type}
+          {artefact.label ? ` · ${artefact.label}` : ""}
+        </p>
+
+        {artefact.type === "link" && artefact.url && (
+          <a
+            href={artefact.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 block truncate text-sm text-blue-600 hover:underline"
+          >
+            {artefact.url}
+          </a>
+        )}
+
+
+        {artefact.type === "image" && artefact.url && (
+      
+          //eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={artefact.url}
+            alt={artefact.label || "Artefact"}
+            className="mt-2 w-full rounded-xl object-cover"
+          />
+        )}
+
+        {artefact.type === "text" && artefact.content && (
+          <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
+            {artefact.content}
           </p>
-  
-          {artefact.type === "link" && artefact.url && (
-            <a
-                href={artefact.url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 block truncate text-sm text-blue-600 hover:underline"
-            >
-                {artefact.url}
-            </a>
-            )}
-  
-          {artefact.type === "image" && artefact.url && (
-            //eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={artefact.url}
-              alt={artefact.label || "Artefact"}
-              className="mt-2 w-full rounded-xl object-cover"
-            />
-          )}
-  
-          {artefact.type === "text" && artefact.content && (
-            <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
-              {artefact.content}
-            </p>
-          )}
-        </div>
-  
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label="Remove artefact"
-          className="mt-1 text-xs text-gray-400 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
-        >
-          ✕
-        </button>
+        )}
       </div>
-    )
-  }
+
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label="Remove artefact"
+        className="mt-1 text-xs text-gray-400 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
